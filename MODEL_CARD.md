@@ -8,11 +8,11 @@ base_model: microsoft/Phi-4-multimodal-instruct
 # Phi-4 Multimodal Instruct (DIMER package v0.1.0)
 
 [![Hugging Face](https://img.shields.io/badge/Hugging%20Face-microsoft%2FPhi--4--multimodal--instruct-ffcc4d)](https://huggingface.co/microsoft/Phi-4-multimodal-instruct)
-[![Weight license](https://img.shields.io/badge/weights-mit-blue)](https://huggingface.co/microsoft/Phi-4-multimodal-instruct/blob/93f923e1a7727d1c4f446756212d9d3e8fcc5d81/LICENSE)
+[![Weight license](https://img.shields.io/badge/weights-MIT-blue)](https://huggingface.co/microsoft/Phi-4-multimodal-instruct/blob/93f923e1a7727d1c4f446756212d9d3e8fcc5d81/LICENSE)
 
 ###### Description
 
-Phi-4-multimodal-instruct is Microsoft's approximately 5.6B-parameter multimodal transformer that accepts text, image, and audio inputs and generates text, packaged here from `microsoft/Phi-4-multimodal-instruct` at immutable revision `93f923e1a7727d1c4f446756212d9d3e8fcc5d81`. Upstream reports a Phi-4-Mini-Instruct language backbone with vision and speech encoders/adapters and a 128K-token context. This repository adds a normalized multimodal request contract, explicit remote-code opt-in, provenance, validation, and DIMER tutorial packaging without weight adaptation.
+Phi-4-multimodal-instruct is Microsoft's approximately 5.6B-parameter multimodal transformer that accepts text, image, and audio inputs and generates text, packaged here from `microsoft/Phi-4-multimodal-instruct` at immutable revision `93f923e1a7727d1c4f446756212d9d3e8fcc5d81`. Upstream reports a Phi-4-Mini-Instruct language backbone with vision and speech encoders/adapters and a 128K-token context. This repository adds a normalized multimodal request contract, explicit remote-code opt-in, explicit attention-backend selection, provenance, validation, and DIMER tutorial packaging without weight adaptation.
 
 #### Intended Use and Limitations
 
@@ -28,7 +28,8 @@ Primary users are ML engineers, multimodal researchers, application developers, 
 
 1. **Capability boundary:** this repository does not expose parameter fine-tuning, image generation, speech synthesis, biometric recognition, or a calibrated classifier.
 2. **Input boundary:** the DIMER reference wrapper caps one request at four images and four audio clips and caps generated output at 2,048 new tokens; larger requests require a separately reviewed serving contract.
-3. **Decision boundary:** autonomous high-consequence decisions based solely on generated multimodal text are outside scope, regardless of model fluency.
+3. **Runtime boundary:** the release-reference tutorial requires a suitable CUDA GPU. FlashAttention 2 is not an implicit dependency; callers selecting it must provide a compatible `flash-attn` installation. The default DIMER attention implementation is `eager`.
+4. **Decision boundary:** autonomous high-consequence decisions based solely on generated multimodal text are outside scope, regardless of model fluency.
 
 #### Factors
 
@@ -42,7 +43,7 @@ Inputs may come from cameras, scanners, screenshots, microphones, telephony syst
 
 ###### Environment
 
-The reference runtime pins Python 3.12 and the upstream-recommended generation stack around PyTorch 2.6 and Transformers 4.48.2. Practical execution requires a suitable GPU because the model snapshot is roughly 13 GB and upstream examples use CUDA. Data-environment assumptions vary by modality: text-language coverage, image-domain shift, audio language/noise, and cross-modal alignment can all change behavior. The repository does not claim equivalent quality across modalities, languages, hardware, or deployment domains.
+The reference runtime pins Python 3.12 and the model-facing stack around PyTorch 2.6 and Transformers 4.48.2. Practical release-reference execution requires a suitable CUDA GPU because the model snapshot is roughly 13 GB. The DIMER loader explicitly uses `eager` attention by default so a clean runtime does not silently depend on FlashAttention 2; `flash_attention_2` is an explicit optional path that fails clearly when a compatible `flash-attn` build is absent. Data-environment assumptions vary by modality: text-language coverage, image-domain shift, audio language/noise, and cross-modal alignment can all change behavior. The repository does not claim equivalent quality across modalities, languages, hardware, or deployment domains.
 
 #### Metrics
 
@@ -56,7 +57,7 @@ No classification, acceptance, or safety threshold is shipped by this wrapper. G
 
 ###### Approaches to uncertainty and variability
 
-The tutorial performs one functional run per demonstrated capability and does not report dispersion or confidence intervals. With temperature zero, sampling randomness is suppressed, but GPU kernels, library versions, media decoding, and upstream custom code can still affect exact outputs. Positive temperature intentionally introduces stochastic decoding. The model does not provide a calibrated probability for the correctness of generated text through this wrapper, so downstream systems must establish task-specific uncertainty or review procedures.
+The tutorial performs one functional run per demonstrated capability and does not report dispersion or confidence intervals. With temperature zero, sampling randomness is suppressed, but GPU kernels, library versions, media decoding, attention implementation, and upstream custom code can still affect exact outputs. Positive temperature intentionally introduces stochastic decoding. The model does not provide a calibrated probability for the correctness of generated text through this wrapper, so downstream systems must establish task-specific uncertainty or review procedures.
 
 #### Ethical considerations and biases
 
@@ -70,11 +71,11 @@ This pipeline is not intended, certified, or independently validated for autonom
 
 ###### Mitigations
 
-Implemented controls include an immutable upstream revision; an explicit `allow_remote_code=True` opt-in before executing the model repository's custom Python code; exact model-facing dependency pins; CUDA availability failure when GPU is requested; non-empty prompt validation; media-count and generation-length ceilings; explicit decoding parameters; normalized provenance fields on every result; unit tests for the prompt/media contract; model-card/notebook source validation; and documentation that functional execution does not establish answer correctness or safety.
+Implemented controls include an immutable upstream revision; an explicit `allow_remote_code=True` opt-in before executing the model repository's custom Python code; exact model-facing dependency pins; explicit `eager` attention as the portable default; refusal of `flash_attention_2` when its compatible package is absent; CUDA availability failure when GPU is requested; non-empty prompt validation; media-count and generation-length ceilings; explicit decoding parameters; normalized provenance fields on every result; unit tests for prompt/media and attention contracts; model-card/notebook source validation; and documentation that functional execution does not establish answer correctness or safety.
 
 ###### Risks and harms
 
-The model can hallucinate facts, misread images, mistranscribe audio, follow misleading context, or generate biased or harmful text. Cross-modal mistakes may appear persuasive because image or audio evidence is hidden from downstream readers. Executing third-party custom model code creates a software supply-chain risk despite revision pinning. User media may contain sensitive information. Automation bias, prompt injection in multimodal content, and domain shift can magnify harms when outputs are accepted without review.
+The model can hallucinate facts, misread images, mistranscribe audio, follow misleading context, or generate biased or harmful text. Cross-modal mistakes may appear persuasive because image or audio evidence is hidden from downstream readers. Executing third-party custom model code creates a software supply-chain risk despite revision pinning. User media may contain sensitive information. Automation bias, prompt injection in multimodal content, attention-backend/runtime differences, and domain shift can magnify harms when outputs are accepted without review.
 
 ###### Use cases
 
@@ -85,6 +86,10 @@ The pipeline must not be used for unlawful surveillance, biometric or demographi
 - Model: `microsoft/Phi-4-multimodal-instruct`
 - Revision: `93f923e1a7727d1c4f446756212d9d3e8fcc5d81`
 - Weight format: sharded SafeTensors
+- Weight license: MIT
+- Repository code license: Apache-2.0
 - Remote code: **required upstream** and explicitly opt-in in this repository
+- Default attention implementation: `eager`
+- Optional optimized attention: `flash_attention_2`, only with a compatible separately installed `flash-attn`
 - Upstream model card: https://huggingface.co/microsoft/Phi-4-multimodal-instruct
 - Technical report: https://arxiv.org/abs/2503.01743
