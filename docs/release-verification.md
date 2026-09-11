@@ -77,4 +77,4 @@ measurements for the stated runtime, not general estimates.
 
 ## Current status
 
-A clean supported-class GPU execution of this exact revision is recorded above (Kaggle T4, fresh container, clean cache, all stages of the default path). Static CI is green on the same commit. The registry status remains **Candidate** until a reviewer confirms the recorded run against the notebook blob under review and an integrator promotes it; promotion is not performed by the builder.
+A clean supported-class GPU execution of this exact revision is recorded above (Kaggle T4, fresh container, clean cache, all stages of the default path). Static CI is green on the same commit. The registry status remains **Candidate** until a reviewer confirms the recorded run against the notebook blob under review and an integrator promotes it; promotion is not performed by the builder. The commit that adds a recorded-execution row changes documentation only; the executed source is the commit named in the row.
