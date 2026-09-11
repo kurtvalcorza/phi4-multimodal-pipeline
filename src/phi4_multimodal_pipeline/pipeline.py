@@ -7,6 +7,7 @@ from typing import Any
 MODEL_ID = "microsoft/Phi-4-multimodal-instruct"
 MODEL_REVISION = "93f923e1a7727d1c4f446756212d9d3e8fcc5d81"
 MODEL_LICENSE = "MIT"
+SUPPORTED_ATTENTION = {"eager", "flash_attention_2"}
 
 
 def _build_prompt(instruction: str, image_count: int, audio_count: int) -> str:
@@ -25,6 +26,7 @@ def _build_prompt(instruction: str, image_count: int, audio_count: int) -> str:
 class Phi4MultimodalPipeline:
     _generate: Callable[..., str]
     device: str
+    attention_implementation: str = "eager"
 
     @classmethod
     def from_pretrained(
@@ -32,11 +34,16 @@ class Phi4MultimodalPipeline:
         *,
         allow_remote_code: bool = False,
         device: str = "cuda",
+        attention_implementation: str = "eager",
     ) -> Phi4MultimodalPipeline:
         if not allow_remote_code:
             raise RuntimeError(
                 "Phi-4-multimodal requires upstream custom Python model code. "
                 "Set allow_remote_code=True only after reviewing the pinned revision trust boundary."
+            )
+        if attention_implementation not in SUPPORTED_ATTENTION:
+            raise ValueError(
+                "attention_implementation must be 'eager' or 'flash_attention_2'"
             )
 
         import torch
@@ -46,6 +53,14 @@ class Phi4MultimodalPipeline:
             raise RuntimeError(
                 "CUDA was requested but is unavailable; choose an appropriate GPU runtime"
             )
+        if attention_implementation == "flash_attention_2":
+            try:
+                import flash_attn  # noqa: F401
+            except ImportError as exc:
+                raise RuntimeError(
+                    "flash_attention_2 was requested but flash-attn is not installed; "
+                    "install a compatible flash-attn build or use attention_implementation='eager'"
+                ) from exc
 
         processor = AutoProcessor.from_pretrained(
             MODEL_ID,
@@ -57,7 +72,8 @@ class Phi4MultimodalPipeline:
             revision=MODEL_REVISION,
             trust_remote_code=True,
             torch_dtype="auto",
-            device_map=device if device != "cuda" else "cuda:0",
+            device_map=device,
+            _attn_implementation=attention_implementation,
         ).eval()
         generation_config = GenerationConfig.from_pretrained(
             MODEL_ID,
@@ -97,7 +113,7 @@ class Phi4MultimodalPipeline:
                 clean_up_tokenization_spaces=False,
             )[0].strip()
 
-        return cls(runner, device)
+        return cls(runner, device, attention_implementation)
 
     def generate(
         self,
@@ -131,4 +147,5 @@ class Phi4MultimodalPipeline:
             "audio_count": len(audio_list),
             "temperature": temperature,
             "max_new_tokens": max_new_tokens,
+            "attention_implementation": self.attention_implementation,
         }
