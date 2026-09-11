@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import Any, Callable, Sequence
+from typing import Any
 
 MODEL_ID = "microsoft/Phi-4-multimodal-instruct"
 MODEL_REVISION = "93f923e1a7727d1c4f446756212d9d3e8fcc5d81"
@@ -31,7 +32,7 @@ class Phi4MultimodalPipeline:
         *,
         allow_remote_code: bool = False,
         device: str = "cuda",
-    ) -> "Phi4MultimodalPipeline":
+    ) -> Phi4MultimodalPipeline:
         if not allow_remote_code:
             raise RuntimeError(
                 "Phi-4-multimodal requires upstream custom Python model code. "
