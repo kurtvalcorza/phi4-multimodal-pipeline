@@ -1,14 +1,34 @@
 ---
 license: mit
-model_card_spec: "1.0"
+model_card_spec: "1.1"
 pipeline_tag: image-text-to-text
 base_model: microsoft/Phi-4-multimodal-instruct
 ---
 
-# Phi-4 Multimodal Instruct (DIMER package v0.1.0)
+# Phi-4 Multimodal Instruct (DIMER package v0.1.0) — Multimodal Language Model (Text, Image & Audio)
 
-[![Hugging Face](https://img.shields.io/badge/Hugging%20Face-microsoft%2FPhi--4--multimodal--instruct-ffcc4d)](https://huggingface.co/microsoft/Phi-4-multimodal-instruct)
-[![Weight license](https://img.shields.io/badge/weights-MIT-blue)](https://huggingface.co/microsoft/Phi-4-multimodal-instruct/blob/93f923e1a7727d1c4f446756212d9d3e8fcc5d81/LICENSE)
+[![Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-microsoft%2FPhi--4--multimodal--instruct-ffcc4d?style=flat)](https://huggingface.co/microsoft/Phi-4-multimodal-instruct)
+[![arXiv Paper](https://img.shields.io/badge/arXiv-2503.01743-b31b1b.svg)](https://arxiv.org/abs/2503.01743)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://huggingface.co/microsoft/Phi-4-multimodal-instruct/blob/93f923e1a7727d1c4f446756212d9d3e8fcc5d81/LICENSE)
+[![Pipeline](https://img.shields.io/badge/Pipeline-phi4--multimodal--pipeline-2ea44f?style=flat&logo=github)](https://github.com/kurtvalcorza/phi4-multimodal-pipeline)
+
+> [!WARNING]
+> ⚠️ **Provided for research, training, and evaluation purposes only.** Model weights are redistributed unmodified under their upstream license, which controls your use, including any commercial use or redistribution; the accompanying code and notebooks are released under this repository's license. All of it is supplied **"as is"**, without warranty of any kind, and has not been validated for production, clinical, or safety-critical use. Running the notebooks downloads third-party weights and datasets governed by their own licenses and consumes compute on your own Colab/Kaggle account. To the maximum extent permitted by law, the maintainers of this repository and the DIMER platform accept no liability for any damages arising from their use. Hosting implies no affiliation with or endorsement by the original authors.
+
+---
+
+## Interactive Colab Tutorials
+
+This pipeline provides a ready-to-run interactive Google Colab notebook that exercises the repository's public API end to end — bootstrap a fresh runtime, resolve and verify the pinned upstream revision, validate an input, run the task, and inspect and export the outputs:
+
+- **Multi-Capability Tutorial**:  
+  [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/kurtvalcorza/phi4-multimodal-pipeline/blob/main/tutorials/phi4_multimodal_colab.ipynb) [`phi4_multimodal_colab.ipynb`](https://github.com/kurtvalcorza/phi4-multimodal-pipeline/blob/main/tutorials/phi4_multimodal_colab.ipynb)  
+  *Text-, image-, and audio-conditioned text generation with one pinned Phi-4 Multimodal checkpoint, including the custom-code trust-boundary acknowledgement; no adaptation occurs.*
+
+> [!NOTE]
+> Requires a fresh CUDA runtime with enough memory for the roughly 13 GB model snapshot; the notebook does not run on CPU.
+
+---
 
 ###### Description
 
