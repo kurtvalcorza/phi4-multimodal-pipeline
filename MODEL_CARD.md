@@ -3,6 +3,8 @@ license: mit
 model_card_spec: "1.1"
 pipeline_tag: image-text-to-text
 base_model: microsoft/Phi-4-multimodal-instruct
+date_published: "2025-02-24"
+date_published_source: "Hugging Face Hub repository creation date of the exact hosted checkpoint (`createdAt`, https://huggingface.co/api/models/microsoft/Phi-4-multimodal-instruct)"
 ---
 
 # Phi-4 Multimodal Instruct (DIMER package v0.1.0) — Multimodal Language Model (Text, Image & Audio)
@@ -10,7 +12,6 @@ base_model: microsoft/Phi-4-multimodal-instruct
 [![Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-microsoft%2FPhi--4--multimodal--instruct-ffcc4d?style=flat)](https://huggingface.co/microsoft/Phi-4-multimodal-instruct)
 [![arXiv Paper](https://img.shields.io/badge/arXiv-2503.01743-b31b1b.svg)](https://arxiv.org/abs/2503.01743)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://huggingface.co/microsoft/Phi-4-multimodal-instruct/blob/93f923e1a7727d1c4f446756212d9d3e8fcc5d81/LICENSE)
-[![Pipeline](https://img.shields.io/badge/Pipeline-phi4--multimodal--pipeline-2ea44f?style=flat&logo=github)](https://github.com/kurtvalcorza/phi4-multimodal-pipeline)
 
 > [!WARNING]
 > ⚠️ **Provided for research, training, and evaluation purposes only.** Model weights are redistributed unmodified under their upstream license, which controls your use, including any commercial use or redistribution; the accompanying code and notebooks are released under this repository's license. All of it is supplied **"as is"**, without warranty of any kind, and has not been validated for production, clinical, or safety-critical use. Running the notebooks downloads third-party weights and datasets governed by their own licenses and consumes compute on your own Colab/Kaggle account. To the maximum extent permitted by law, the maintainers of this repository and the DIMER platform accept no liability for any damages arising from their use. Hosting implies no affiliation with or endorsement by the original authors.
@@ -30,7 +31,7 @@ This pipeline provides a ready-to-run interactive Google Colab notebook that exe
 
 ---
 
-###### Description
+#### Description
 
 Phi-4-multimodal-instruct is Microsoft's approximately 5.6B-parameter multimodal transformer that accepts text, image, and audio inputs and generates text, packaged here from `microsoft/Phi-4-multimodal-instruct` at immutable revision `93f923e1a7727d1c4f446756212d9d3e8fcc5d81`. Upstream reports a Phi-4-Mini-Instruct language backbone with vision and speech encoders/adapters and a 128K-token context. This repository adds a normalized multimodal request contract, explicit remote-code opt-in, explicit attention-backend selection, provenance, validation, and DIMER tutorial packaging without weight adaptation.
 
