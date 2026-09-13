@@ -1,7 +1,7 @@
 """Static release-asset validation for the Phi-4 Multimodal DIMER pipeline.
 
 Checks the tutorial notebook, tutorial registry, model card, README, STATUS.md and
-weight documentation for DIMER Notebook Specification 1.0 / Model Card Specification 1.0
+weight documentation for DIMER Notebook Specification 1.0 / Model Card Specification 1.1
 source conformance and cross-document identity consistency.
 
 This is source validation only. A PASS here is NOT clean-runtime execution evidence;
@@ -237,7 +237,7 @@ def validate_model_card() -> None:
     front = text.split("---", 2)[1]
     for key in ("license:", "model_card_spec:", "base_model:"):
         _check(key in front, f"MODEL_CARD.md missing front-matter field: {key}")
-    _check('model_card_spec: "1.0"' in front, "MODEL_CARD.md model_card_spec must be 1.0")
+    _check('model_card_spec: "1.1"' in front, "MODEL_CARD.md model_card_spec must be 1.1")
     _check(f"base_model: {EXPECTED_MODEL_ID}" in front, "MODEL_CARD.md base_model must equal MODEL_ID")
     _check(not PLACEHOLDER.search(text), "MODEL_CARD.md contains placeholder/scaffolding text")
     _check(not UNSUPPORTED_CLAIMS.search(text), "MODEL_CARD.md makes an unsupported release/benchmark claim")
