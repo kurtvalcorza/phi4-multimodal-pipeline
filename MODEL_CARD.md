@@ -69,7 +69,7 @@ The reference runtime pins Python 3.12 and the model-facing stack around PyTorch
 
 ###### Performance Measures
 
-This inference wrapper does not report a universal scalar quality metric because its outputs span open-ended text generation, visual question answering, and audio-conditioned generation. The tutorial verifies that each demonstrated capability returns machine-readable text through the same public API, but that is functional evidence rather than quality measurement. Deployment evaluation must provide task-specific labeled references or human scoring, such as exact-match/F1 for bounded QA, WER for ASR, or rubric-based generation evaluation.
+This inference wrapper does not report a universal scalar quality metric because its outputs span open-ended text generation, visual question answering, and audio-conditioned generation. The public `evaluation_report` stage therefore writes a machine-readable report whose verdict is always `not-measurable`, recording per capability whether the output was non-empty and what labelled data (reference answers, VQA pairs or captions, reference transcripts) would make it measurable. The tutorial verifies that each demonstrated capability returns machine-readable text through the same public API, but that is functional evidence rather than quality measurement. Deployment evaluation must provide task-specific labeled references or human scoring, such as exact-match/F1 for bounded QA, WER for ASR, or rubric-based generation evaluation.
 
 ###### Decision thresholds
 
@@ -91,7 +91,7 @@ This pipeline is not intended, certified, or independently validated for autonom
 
 ###### Mitigations
 
-Implemented controls include an immutable upstream revision; an explicit `allow_remote_code=True` opt-in before executing the model repository's custom Python code; exact model-facing dependency pins; explicit `eager` attention as the portable default; refusal of `flash_attention_2` when its compatible package is absent; CUDA availability failure when GPU is requested; non-empty prompt validation; media-count and generation-length ceilings; explicit decoding parameters; normalized provenance fields on every result; unit tests for prompt/media and attention contracts; model-card/notebook source validation; and documentation that functional execution does not establish answer correctness or safety.
+Implemented controls include an immutable upstream revision; a committed `dimer-base-manifest.json` whose per-file SHA-256 digests — including those of the five executed remote-code files — `verify_snapshot` re-checks before every load; the public `validate_inputs` stage, which applies the same instruction, media-count and decoding checks as `generate` and writes an input manifest with any rejection recorded as a finding; an explicit `allow_remote_code=True` opt-in before executing the model repository's custom Python code; exact model-facing dependency pins; explicit `eager` attention as the portable default; refusal of `flash_attention_2` when its compatible package is absent; CUDA availability failure when GPU is requested; non-empty prompt validation; media-count and generation-length ceilings; explicit decoding parameters; normalized provenance fields on every result; unit tests for prompt/media and attention contracts; model-card/notebook source validation; and documentation that functional execution does not establish answer correctness or safety.
 
 ###### Risks and harms
 
@@ -108,7 +108,8 @@ The pipeline must not be used for unlawful surveillance, biometric or demographi
 - Weight format: sharded SafeTensors
 - Weight license: MIT
 - Repository code license: Apache-2.0
-- Remote code: **required upstream** and explicitly opt-in in this repository
+- Remote code: **required upstream** and explicitly opt-in in this repository; pinned by digest in `weights/phi4-multimodal-instruct/dimer-base-manifest.json` (`modeling_phi4mm.py` SHA-256 `e2b44eb7a66d6cc54524cee1ff9ba92d0658d435ea8900329ea0dbdb85c6439d`) and re-hashed before import
+- Snapshot manifest: `model-00001-of-00003.safetensors` SHA-256 `c46bb03332d82f6a3eaf85bd20af388dd4d4d68b198c2203c965c7381a466094` (from the Hub LFS metadata at the pinned revision; 26 files, 11172645832 bytes)
 - Default attention implementation: `eager`
 - Optional optimized attention: `flash_attention_2`, only with a compatible separately installed `flash-attn`
 - Upstream model card: https://huggingface.co/microsoft/Phi-4-multimodal-instruct
