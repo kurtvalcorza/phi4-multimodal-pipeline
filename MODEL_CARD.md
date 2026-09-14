@@ -2,6 +2,7 @@
 license: mit
 model_card_spec: "1.1"
 pipeline_tag: image-text-to-text
+task: "Others - Multimodal Generation"
 base_model: microsoft/Phi-4-multimodal-instruct
 date_published: "2025-02-24"
 date_published_source: "Hugging Face Hub repository creation date of the exact hosted checkpoint (`createdAt`, https://huggingface.co/api/models/microsoft/Phi-4-multimodal-instruct)"
