@@ -6,3 +6,13 @@ __pycache__/
 .ipynb_checkpoints/
 outputs/
 .DS_Store
+
+# Model weights are pulled locally; only small config/tokenizer files are committable
+weights/**/*.safetensors
+weights/**/*.ckpt
+weights/**/*.bin
+weights/**/.cache/
+# Upstream remote model code and sample media are never committed: the standalone notebook stages
+# them at run time from the pinned revision and verifies their digests against the manifest.
+weights/**/*.py
+weights/**/*.wav

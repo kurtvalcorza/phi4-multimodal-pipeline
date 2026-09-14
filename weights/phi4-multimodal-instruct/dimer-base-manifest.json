@@ -1,0 +1,140 @@
+{
+  "format": "dimer_hf_snapshot",
+  "formatVersion": 1,
+  "modelKey": "phi4-multimodal-instruct",
+  "modelId": "microsoft/Phi-4-multimodal-instruct",
+  "revision": "93f923e1a7727d1c4f446756212d9d3e8fcc5d81",
+  "files": [
+    {
+      "path": "LICENSE",
+      "bytes": 1141,
+      "sha256": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383"
+    },
+    {
+      "path": "README.md",
+      "bytes": 65395,
+      "sha256": "c79dc706ea8478e931981a048164233ae2256b229114e05744610b87f9301293"
+    },
+    {
+      "path": "added_tokens.json",
+      "bytes": 249,
+      "sha256": "d4f2aceb0f20b71dd1f4bcc7e052e4412946bf281840b8f83d39f259571af486"
+    },
+    {
+      "path": "config.json",
+      "bytes": 4631,
+      "sha256": "49e1c05f93d43d7f17715b779a2576235b019f587285d7d914e5b05156253f62"
+    },
+    {
+      "path": "configuration_phi4mm.py",
+      "bytes": 11014,
+      "sha256": "bd9609bd47ba0c87788011e5158a8bd3e1e93165a82a9b764eb7cb048006c949"
+    },
+    {
+      "path": "examples/what_is_shown_in_this_image.wav",
+      "bytes": 112844,
+      "sha256": "9fcb7788d94740c7925b055a6e66d3bae6e2344ac5caa6ba47da715a3249ef66"
+    },
+    {
+      "path": "examples/what_is_the_traffic_sign_in_the_image.wav",
+      "bytes": 741454,
+      "sha256": "16faff68324cebb79626268af7eb4e2796f6fafd60cfa0ed2bbef927b7d8188a"
+    },
+    {
+      "path": "generation_config.json",
+      "bytes": 190,
+      "sha256": "757daa0d0e89171fe48fc3286341833e95b90bdb7dd3b02a2f8920fb09f85a38"
+    },
+    {
+      "path": "merges.txt",
+      "bytes": 2418348,
+      "sha256": "856ce61180bb689282eed6b3a6838bb1f438399be23aefe9d20eb379791fb4ad"
+    },
+    {
+      "path": "model-00001-of-00003.safetensors",
+      "bytes": 4997504848,
+      "sha256": "c46bb03332d82f6a3eaf85bd20af388dd4d4d68b198c2203c965c7381a466094"
+    },
+    {
+      "path": "model-00002-of-00003.safetensors",
+      "bytes": 4952333128,
+      "sha256": "b3e812c0c8acef4e7f5e34d6c9f77a7640ee4a2b93ea351921365ac62f19918d"
+    },
+    {
+      "path": "model-00003-of-00003.safetensors",
+      "bytes": 1199389232,
+      "sha256": "7be96b7339303752634b202d3f377bcf312a03046586eca6cea23347ace1e65a"
+    },
+    {
+      "path": "model.safetensors.index.json",
+      "bytes": 239890,
+      "sha256": "b67dbc7062e1ccf472faba4222d631dc42929c827fbdaed1ec8e34fe0601819a"
+    },
+    {
+      "path": "modeling_phi4mm.py",
+      "bytes": 116057,
+      "sha256": "e2b44eb7a66d6cc54524cee1ff9ba92d0658d435ea8900329ea0dbdb85c6439d"
+    },
+    {
+      "path": "preprocessor_config.json",
+      "bytes": 482,
+      "sha256": "9db19b9663fb86f04c0f11d3a9b7f65a19f13d4543fb4a15bd33f82b0c92d64f"
+    },
+    {
+      "path": "processing_phi4mm.py",
+      "bytes": 32775,
+      "sha256": "84914d3e12256b4e2186e040c9830c11408468b6774f42afe85e6f8de2626d50"
+    },
+    {
+      "path": "processor_config.json",
+      "bytes": 121,
+      "sha256": "798fc4cd09c067053af27f07f0d2b329b471c5b2eb923ceb06efa41dee660c05"
+    },
+    {
+      "path": "sample_finetune_speech.py",
+      "bytes": 16669,
+      "sha256": "0f2d44593bd0142d3f985473b90d8baf884973fe4d55f139a9a035e333ecc9be"
+    },
+    {
+      "path": "sample_finetune_vision.py",
+      "bytes": 19617,
+      "sha256": "dee385e684dcab9c411cef87d41a4fcd897cce528712a23a9c00fd008eb8de3e"
+    },
+    {
+      "path": "sample_inference_phi4mm.py",
+      "bytes": 10498,
+      "sha256": "22bfc76ecdaeb2641bc6089a8efcaf2291e017111f0b6db3be91df451adab3a8"
+    },
+    {
+      "path": "special_tokens_map.json",
+      "bytes": 473,
+      "sha256": "57491904f8680d4b52ed440f1f7ba48cad1c31ecf3eb453b03484e6ff4723ae8"
+    },
+    {
+      "path": "speech_conformer_encoder.py",
+      "bytes": 110521,
+      "sha256": "3742827e945732cc5deea4a95e14004da037044431a94e3f3fac26239e614e3a"
+    },
+    {
+      "path": "tokenizer.json",
+      "bytes": 15524479,
+      "sha256": "4c1b9f641d4f8b7247b8d5007dd3b6a9f6a87cb5123134fe0d326f14d10c0585"
+    },
+    {
+      "path": "tokenizer_config.json",
+      "bytes": 3248,
+      "sha256": "a5da2e45718db78924ad5135a58a80b0303596acf54a1dc5c912c98436ddcaf3"
+    },
+    {
+      "path": "vision_siglip_navit.py",
+      "bytes": 78218,
+      "sha256": "7d5c053341ee9c099126fe675d5dcdc0ed5c0246f92fffdec78a1ab2f804e28d"
+    },
+    {
+      "path": "vocab.json",
+      "bytes": 3910310,
+      "sha256": "6cb65a857824fa6615bb1782d95d882617a8bbce1da0317118586b36f39e98bd"
+    }
+  ],
+  "totalBytes": 11172645832
+}
