@@ -343,7 +343,12 @@ class Phi4MultimodalPipeline:
             device_map=device,
             _attn_implementation=attention_implementation,
         ).eval()
-        generation_config = GenerationConfig.from_pretrained(**location)
+        model_name = location.get("pretrained_model_name_or_path", MODEL_ID)
+        gen_kwargs = {k: v for k, v in location.items() if k != "pretrained_model_name_or_path"}
+        try:
+            generation_config = GenerationConfig.from_pretrained(model_name, **gen_kwargs)
+        except Exception:
+            generation_config = getattr(model, "generation_config", None)
 
         def runner(
             prompt: str,
