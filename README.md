@@ -56,3 +56,7 @@ weights/phi4-multimodal-instruct/
 ## Release status
 
 **Candidate.** The full snapshot is heavyweight and GPU-oriented; clean GPU notebook execution of the standalone notebook must be recorded against the exact release commit before promotion. Static CI is not runtime evidence, and the runs recorded so far in `docs/release-verification.md` executed the previous (repository-installing) notebook, not the standalone carrier or the manifest-verified snapshot path.
+
+## AI Assistance Disclosure
+
+This tutorial and its accompanying documentation were developed with generative AI assistance for code development and technical writing under maintainer direction. The maintainer remains responsible for reviewing the implementation, validating results, and making release decisions. AI assistance does not constitute independent verification, provider endorsement, or release approval.
