@@ -7,7 +7,7 @@ date_published: "2025-02-24"
 date_published_source: "Hugging Face Hub repository creation date of the exact hosted checkpoint (`createdAt`, https://huggingface.co/api/models/microsoft/Phi-4-multimodal-instruct)"
 ---
 
-# Phi-4 Multimodal Instruct (DIMER package v0.1.0) — Multimodal Language Model (Text, Image & Audio)
+# Phi-4 Multimodal Instruct — Multimodal Language Model (Text, Image & Audio)
 
 [![Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-microsoft%2FPhi--4--multimodal--instruct-ffcc4d?style=flat)](https://huggingface.co/microsoft/Phi-4-multimodal-instruct)
 [![arXiv Paper](https://img.shields.io/badge/arXiv-2503.01743-b31b1b.svg)](https://arxiv.org/abs/2503.01743)
