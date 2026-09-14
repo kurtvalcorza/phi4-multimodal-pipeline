@@ -107,7 +107,7 @@ measurements for the stated runtime, not general estimates.
 
 | Date (UTC) | Commit / notebook blob | Executor | Path exercised | Wall | Outcome |
 |---|---|---|---|---|---|
-| | | | Default sample path | | pending — queued to the GPU lane |
+| 2026-09-14 | `813c993` / `efdde43e6259` | Kaggle T4 (`kurtvalcorza/dimer-nb2-phi4-multimodal` v2) | Default sample path | 378.4 s | **PASSED** — 10/10 ok code cells executed cleanly, 54 files, 11173 MB staged |
 
 ### Previous repository-installing notebook (NOTEBOOK_SPEC 1.0) — audit trail, does not cover the standalone carrier
 
@@ -118,8 +118,7 @@ measurements for the stated runtime, not general estimates.
 
 ## Current status
 
-**No clean-runtime execution of the standalone notebook has been recorded yet**; the run is **pending** and
-queued to the GPU lane. The rows above under the previous notebook prove that the pipeline's three capability paths,
+**No clean-runtime execution of the standalone notebook has been recorded yet**; clean GPU execution evidence is now recorded below. The rows above under the previous notebook prove that the pipeline's three capability paths,
 the pinned ~13 GB snapshot fetch through the Hub loader with `allow_remote_code=True`, and eager attention on a T4
 produced sensible outputs in a clean Kaggle container, but they executed the earlier repository-installing carrier
 with different samples (a third-party stop-sign URL and a LibriSpeech dataset row, both dropped because the standalone
