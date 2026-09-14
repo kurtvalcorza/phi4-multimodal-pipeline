@@ -184,7 +184,10 @@ def test_from_pretrained_loads_the_verified_directory(monkeypatch, tmp_path: Pat
     assert calls.processor == [((), location)]
     assert calls.model[0][1]["pretrained_model_name_or_path"] == str(tmp_path)
     assert calls.model[0][1]["_attn_implementation"] == "eager"
-    assert calls.generation in ([((str(tmp_path),), {})], [((), {"pretrained_model_name_or_path": str(tmp_path)})])
+    expected_gen = [((str(tmp_path),), {})]
+    assert calls.generation == expected_gen or calls.generation == [
+        ((), {"pretrained_model_name_or_path": str(tmp_path)})
+    ]
 
 
 def test_from_pretrained_hub_path_only_with_allow_download(monkeypatch, tmp_path: Path) -> None:
