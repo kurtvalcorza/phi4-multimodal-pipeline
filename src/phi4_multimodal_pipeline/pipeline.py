@@ -12,12 +12,18 @@ the manifest and re-hashed by ``verify_snapshot`` before it is imported; the wei
 
 from __future__ import annotations
 
+# ruff: noqa: E501  -- adaptation-contract lines are kept at the fleet width
 import hashlib
 import json
+import random
+import re
+import time
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+from PIL import Image
 
 MODEL_ID = "microsoft/Phi-4-multimodal-instruct"
 MODEL_REVISION = "93f923e1a7727d1c4f446756212d9d3e8fcc5d81"
@@ -49,6 +55,26 @@ MAX_NEW_TOKENS = 2048
 MAX_TEMPERATURE = 2.0
 DEFAULT_MAX_NEW_TOKENS = 128
 DEFAULT_TEMPERATURE = 0.0  # greedy decoding
+WEIGHT_FILE = "model-00001-of-00003.safetensors"  # the shard whose digest names the base in adapter manifests
+QUANTIZATIONS = (None, "nf4")
+# Modules kept in fp16 under NF4: the output head, the token embeddings and the vision/audio towers and projectors.
+NF4_SKIP_MODULES = ("lm_head", "embed_tokens", "embed_tokens_extend", "image_embed", "audio_embed", "img_processor", "encoder", "lora_A", "lora_B")  # the checkpoint's own LoRA tensors stay fp16 (they are what `adapt` trains)
+VISION_LORA_PATTERN = r"^model\.layers\.(\d+)\..*\.lora_(A|B)\.vision\.weight$"
+DEFAULT_TRAINED_LAYERS = 8  # the built-in vision-LoRA tensors of the last N decoder layers are what `adapt` trains
+CAPTION_MAX_NEW_TOKENS = 40
+CAPTION_MAX_SIDE = 448  # captioning inputs are downscaled to one 448-px tile so the processor does not tile a phone photo into thousands of tokens
+MIN_SCORED_RECORDS = 50
+MAX_EVAL_RECORDS = 5_000
+ARTIFACT_FORMAT = f"org.valcorza.{MODEL_KEY}.adapter.v1"
+ARTIFACT_VERSION = "1.0"
+ADAPTER_WEIGHTS = "adapter.safetensors"
+ADAPTER_MANIFEST = "manifest.json"
+# Captioning adaptation contract (shared with the fleet's captioning rows).
+MAX_PREFIX_CHARS = 128
+MIN_IMAGE_SIDE = 16
+MAX_IMAGE_SIDE = 4096
+CAPTION_INSTRUCTION = "Describe this photo in one short sentence."
+_PUNCT_RE = re.compile(r"[^\w\s]")
 
 
 def _sha256(path: Path) -> str:
@@ -173,6 +199,62 @@ def _check_inputs(
     return image_list, audio_list, prompt
 
 
+def normalize_caption(text: str) -> str:
+    """COCO-caption-style normalisation: lower-case, punctuation removed, whitespace collapsed."""
+    return " ".join(_PUNCT_RE.sub(" ", text.lower()).split())
+
+
+def caption_tokens(text: str) -> list[str]:
+    return normalize_caption(text).split()
+
+
+def unigram_f1(prediction: str, references: Sequence[str]) -> float:
+    """Bag-of-words F1 between the normalised prediction and the best-matching reference (a plumbing
+    check, not a captioning metric; `metrics.py` has BLEU-4 / ROUGE-L / CIDEr-D)."""
+    if not references:
+        raise ValueError("references must contain at least one caption")
+    pred = caption_tokens(prediction)
+    best = 0.0
+    for reference in references:
+        ref = caption_tokens(reference)
+        if not pred or not ref:
+            continue
+        ref_counts: dict[str, int] = {}
+        for token in ref:
+            ref_counts[token] = ref_counts.get(token, 0) + 1
+        overlap = 0
+        for token in pred:
+            if ref_counts.get(token, 0) > 0:
+                overlap += 1
+                ref_counts[token] -= 1
+        if overlap:
+            precision, recall = overlap / len(pred), overlap / len(ref)
+            best = max(best, 2 * precision * recall / (precision + recall))
+    return best
+
+
+def validate_image(image: Any) -> Image.Image:
+    """A PIL image within the side limits, converted to RGB (the captioning records' image check)."""
+    if not isinstance(image, Image.Image):
+        raise TypeError(f"image must be a PIL.Image.Image, got {type(image).__name__}")
+    width, height = image.size
+    if min(width, height) < MIN_IMAGE_SIDE:
+        raise ValueError(f"image side {min(width, height)} px < MIN_IMAGE_SIDE {MIN_IMAGE_SIDE}")
+    if max(width, height) > MAX_IMAGE_SIDE:
+        raise ValueError(f"image side {max(width, height)} px > MAX_IMAGE_SIDE {MAX_IMAGE_SIDE}")
+    return image.convert("RGB")
+
+
+def caption_view(image: Image.Image, *, max_side: int = CAPTION_MAX_SIDE) -> Image.Image:
+    """The image as the captioning contract feeds it: RGB, long side at most `max_side` px (aspect kept), so the
+    processor's dynamic tiling yields one or two 448-px crops (about 550 tokens) for any photograph."""
+    rgb = validate_image(image)
+    scale = max_side / max(rgb.size)
+    if scale >= 1.0:
+        return rgb
+    return rgb.resize((max(1, round(rgb.width * scale)), max(1, round(rgb.height * scale))), Image.BICUBIC)
+
+
 def _observe_image(image: Any) -> dict[str, Any]:
     size = getattr(image, "size", None)
     return {"kind": "image", "mode": getattr(image, "mode", None), "size": list(size) if size else None}
@@ -281,6 +363,11 @@ class Phi4MultimodalPipeline:
     device: str
     attention_implementation: str = "eager"
     source: str = "injected"
+    quantization: str | None = None
+    _model: Any = field(default=None, repr=False)
+    _processor: Any = field(default=None, repr=False)
+    weight_sha256: str | None = None
+    adapter: dict[str, Any] | None = None
 
     @classmethod
     def from_pretrained(
@@ -291,7 +378,13 @@ class Phi4MultimodalPipeline:
         attention_implementation: str = "eager",
         weights_dir: str | Path | None = None,
         allow_download: bool = False,
+        quantization: str | None = None,
     ) -> Phi4MultimodalPipeline:
+        """Load the processor and model. ``quantization="nf4"`` loads the language model's linear layers as
+        4-bit NF4 (bitsandbytes, fp16 compute) so the 5.6 B model fits a 16 GB accelerator for adaptation;
+        the vision encoder, its projector and the embeddings stay in fp16."""
+        if quantization not in QUANTIZATIONS:
+            raise ValueError(f"quantization must be one of {QUANTIZATIONS}")
         if not allow_remote_code:
             raise RuntimeError(
                 "Phi-4-multimodal requires upstream custom Python model code. "
@@ -335,14 +428,38 @@ class Phi4MultimodalPipeline:
                 f"stage it with: hf download {MODEL_ID} --revision {MODEL_REVISION} --local-dir {root}"
             )
 
+        weight_sha256 = None
+        if source == "local-snapshot":
+            with open(root / MANIFEST_NAME, encoding="utf-8") as handle:
+                entries = json.load(handle).get("files", [])
+            weight_sha256 = next((e["sha256"] for e in entries if e["path"] == WEIGHT_FILE), None)
         processor = AutoProcessor.from_pretrained(**location, trust_remote_code=True)
+        load_kwargs: dict[str, Any] = {"torch_dtype": "auto"}
+        if quantization == "nf4":
+            import torch
+            from transformers import BitsAndBytesConfig
+
+            load_kwargs = {
+                "torch_dtype": torch.float16,
+                "quantization_config": BitsAndBytesConfig(
+                    load_in_4bit=True,
+                    bnb_4bit_quant_type="nf4",
+                    bnb_4bit_compute_dtype=torch.float16,
+                    bnb_4bit_use_double_quant=True,
+                    llm_int8_skip_modules=list(NF4_SKIP_MODULES),
+                ),
+            }
         model = AutoModelForCausalLM.from_pretrained(
             **location,
             trust_remote_code=True,
-            torch_dtype="auto",
             device_map=device,
             _attn_implementation=attention_implementation,
+            **load_kwargs,
         ).eval()
+        for param in (model.parameters() if hasattr(model, "parameters") else ()):  # tests stub the model
+            param.requires_grad_(False)
+        if hasattr(model, "set_lora_adapter"):
+            _install_adapter_switch(model)
         model_name = location.get("pretrained_model_name_or_path", MODEL_ID)
         gen_kwargs = {k: v for k, v in location.items() if k != "pretrained_model_name_or_path"}
         try:
@@ -383,7 +500,7 @@ class Phi4MultimodalPipeline:
                 clean_up_tokenization_spaces=False,
             )[0].strip()
 
-        return cls(runner, device, attention_implementation, source)
+        return cls(runner, device, attention_implementation, source, quantization, model, processor, weight_sha256)
 
     def generate(
         self,
@@ -416,3 +533,363 @@ class Phi4MultimodalPipeline:
             "device": self.device,
             "source": self.source,
         }
+
+    # ------------------------------------------------------------------ captioning adaptation contract
+
+    def _require_model(self) -> tuple[Any, Any]:
+        if self._model is None or self._processor is None:
+            raise RuntimeError("no model loaded: construct with from_pretrained or from_artifact")
+        return self._model, self._processor
+
+    def caption(
+        self,
+        image: Image.Image,
+        *,
+        instruction: str = CAPTION_INSTRUCTION,
+        max_new_tokens: int = CAPTION_MAX_NEW_TOKENS,
+    ) -> dict[str, Any]:
+        """One greedy caption for one image through the vision LoRA (the model's image path)."""
+        view = caption_view(image)
+        self._require_model()
+        result = self.generate(instruction, images=[view], max_new_tokens=max_new_tokens, temperature=0.0)
+        return {"caption": result["text"], "instruction": instruction, "max_new_tokens": max_new_tokens, "image_size": list(view.size), "adapted": self.adapter is not None, "model_id": MODEL_ID, "model_revision": MODEL_REVISION}
+
+    def evaluate(
+        self,
+        records: Sequence[Mapping[str, Any]],
+        *,
+        max_new_tokens: int = CAPTION_MAX_NEW_TOKENS,
+        progress: Callable[[int, int], None] | None = None,
+    ) -> dict[str, Any]:
+        """Caption every record's image (greedy) and score the predictions against its reference captions
+        (BLEU-4, ROUGE-L, CIDEr-D, unigram F1)."""
+        from .metrics import caption_metrics
+        from .samples import validate_dataset
+
+        checked = validate_dataset(records, min_records=1, max_records=MAX_EVAL_RECORDS)["records"]
+        started = time.perf_counter()
+        predictions = []
+        for index, record in enumerate(checked):
+            with Image.open(record["image"]) as image:
+                image.load()
+                predictions.append(self.caption(image, max_new_tokens=max_new_tokens)["caption"])
+            if progress is not None:
+                progress(index + 1, len(checked))
+        metrics = caption_metrics(predictions, [[str(c) for c in r["captions"]] for r in checked])
+        metrics.update(
+            {
+                "max_new_tokens": max_new_tokens,
+                "verdict": "measured" if len(checked) >= MIN_SCORED_RECORDS else "measured-small-sample",
+                "adapted": self.adapter is not None,
+                "seconds": round(time.perf_counter() - started, 3),
+                "model_id": MODEL_ID,
+                "model_revision": MODEL_REVISION,
+            }
+        )
+        return metrics
+
+    def _trainable_names(self, trained_layers: int) -> list[str]:
+        """The built-in vision-LoRA tensors (A and B of every LoRA-wrapped projection) of the last
+        `trained_layers` decoder layers — the checkpoint's own adaptation parameters, nothing new is added."""
+        model, _processor = self._require_model()
+        n_layers = len(model.model.layers)
+        if isinstance(trained_layers, bool) or not isinstance(trained_layers, int) or not 1 <= trained_layers <= n_layers:
+            raise ValueError(f"trained_layers must be an int in 1..{n_layers}")
+        pattern = re.compile(VISION_LORA_PATTERN)
+        names = []
+        for name, _param in model.named_parameters():
+            match = pattern.match(name)
+            if match and int(match.group(1)) >= n_layers - trained_layers:
+                names.append(name)
+        if not names:
+            raise RuntimeError("no vision-LoRA tensors found; the loaded model is not the pinned Phi-4-multimodal")
+        return names
+
+    def _encode_pair(self, image: Image.Image, instruction: str, answer: str | None) -> tuple[Any, int]:
+        """Processor inputs for the chat-formatted prompt (and answer, when training) plus the prompt length in tokens."""
+        _model, processor = self._require_model()
+        prompt = _build_prompt(instruction, 1, 0)
+        prompt_len = processor(text=prompt, images=[image], return_tensors="pt")["input_ids"].shape[1]
+        text = prompt if answer is None else prompt + answer + "<|end|>"
+        return processor(text=text, images=[image], return_tensors="pt"), prompt_len
+
+    def adapt(
+        self,
+        train: Sequence[Mapping[str, Any]],
+        val: Sequence[Mapping[str, Any]] | None = None,
+        *,
+        epochs: int = 2,
+        lr: float = 4e-5,
+        trained_layers: int = DEFAULT_TRAINED_LAYERS,
+        grad_accumulation: int = 4,
+        instruction: str = CAPTION_INSTRUCTION,
+        seed: int = 0,
+        progress: Callable[[Mapping[str, Any]], None] | None = None,
+    ) -> dict[str, Any]:
+        """Bounded fine-tuning of the checkpoint's **vision LoRA** in the last `trained_layers` decoder layers
+        (the upstream vision recipe, narrowed): the 4-bit or fp16 base, the vision tower, the projector and the
+        other LoRA tensors stay frozen. One (image, reference caption) sample per image per epoch — the
+        reference rotates with the epoch — as the chat-formatted `<|user|><|image_1|>instruction<|end|>
+        <|assistant|>caption<|end|>` with the loss on the caption tokens only; AdamW (no weight decay) on fp32
+        masters of the trained tensors, gradient accumulation over `grad_accumulation` images, clipping at 1.0,
+        seeded shuffling, no scheduler. Epoch 0 records the frozen model's validation metrics; the epoch with
+        the highest validation CIDEr-D is kept (the final one without a validation split). On any exception the
+        frozen tensors are restored."""
+        if isinstance(epochs, bool) or not isinstance(epochs, int) or not 1 <= epochs <= 20:
+            raise ValueError("epochs must be an int in 1..20")
+        if not isinstance(lr, int | float) or not 0.0 < float(lr) <= 1e-3:
+            raise ValueError("lr must be in (0, 1e-3]")
+        if isinstance(grad_accumulation, bool) or not isinstance(grad_accumulation, int) or not 1 <= grad_accumulation <= 64:
+            raise ValueError("grad_accumulation must be an int in 1..64")
+        model, _processor = self._require_model()  # refuse before importing torch
+        from .samples import validate_dataset
+
+        names = self._trainable_names(trained_layers)
+        train_checked = validate_dataset(train)["records"]
+        val_checked = validate_dataset(val, min_records=1)["records"] if val is not None else None
+        import torch
+
+        name_set = set(names)
+        params_by_name = {n: p for n, p in model.named_parameters() if n in name_set}
+        frozen_state = {n: p.detach().clone() for n, p in params_by_name.items()}
+        frozen_dtypes = {n: p.dtype for n, p in params_by_name.items()}
+        previous_adapter = self.adapter
+        history: list[dict[str, Any]] = []
+        started = time.perf_counter()
+        device = model.device
+
+        def _val() -> dict[str, Any] | None:
+            if val_checked is None:
+                return None
+            scored = self.evaluate(val_checked)
+            return {k: scored[k] for k in ("bleu4", "rouge_l", "cider_d", "unigram_f1", "n") if k in scored}
+
+        def _restore(state: Mapping[str, Any]) -> None:
+            with torch.no_grad():
+                for name, param in params_by_name.items():
+                    param.data = state[name].to(device=param.device, dtype=frozen_dtypes[name]).clone()
+                    param.requires_grad_(False)
+
+        try:
+            model.set_lora_adapter("vision")
+            for param in model.parameters():
+                param.requires_grad_(False)
+            params = []
+            for param in params_by_name.values():
+                param.data = param.data.float()  # fp32 master for the trained tensors
+                param.requires_grad_(True)
+                params.append(param)
+            n_trainable = sum(p.numel() for p in params)
+            use_cache = getattr(model.config, "use_cache", None)
+            model.config.use_cache = False
+            # The remote vision encoder is built with gradient_checkpointing=True and, in train mode, calls the
+            # checkpointing function transformers installs here; without this call its forward raises. It also
+            # bounds activation memory on a 16 GB card.
+            if hasattr(model, "gradient_checkpointing_enable"):
+                model.gradient_checkpointing_enable()
+            entry: dict[str, Any] = {"epoch": 0, "train_loss": None, "val": _val(), "note": "frozen model"}
+            history.append(entry)
+            if progress is not None:
+                progress(entry)
+            best_epoch, best_score = 0, (entry["val"] or {}).get("cider_d", -1.0)
+            best_state = {n: p.detach().clone() for n, p in params_by_name.items()}
+            optimizer = torch.optim.AdamW(params, lr=float(lr), weight_decay=0.0)
+            rng = random.Random(seed)
+            torch.manual_seed(seed)
+            for epoch in range(1, epochs + 1):
+                model.train()
+                order = list(train_checked)
+                rng.shuffle(order)
+                losses: list[float] = []
+                optimizer.zero_grad(set_to_none=True)
+                for index, record in enumerate(order):
+                    references = [str(c) for c in record["captions"]]
+                    answer = references[(epoch - 1) % len(references)]
+                    with Image.open(record["image"]) as image:
+                        image.load()
+                        encoded, prompt_len = self._encode_pair(caption_view(image), instruction, answer)
+                    encoded = encoded.to(device)
+                    labels = encoded["input_ids"].clone()
+                    labels[:, :prompt_len] = -100
+                    output = model(**encoded, labels=labels)
+                    loss = output.loss / grad_accumulation
+                    loss.backward()
+                    losses.append(float(output.loss.detach()))
+                    if (index + 1) % grad_accumulation == 0 or index + 1 == len(order):
+                        torch.nn.utils.clip_grad_norm_(params, 1.0)
+                        optimizer.step()
+                        optimizer.zero_grad(set_to_none=True)
+                model.eval()
+                entry = {"epoch": epoch, "train_loss": round(sum(losses) / len(losses), 6), "val": _val()}
+                history.append(entry)
+                if progress is not None:
+                    progress(entry)
+                if val_checked is None or entry["val"]["cider_d"] > best_score:
+                    best_epoch, best_score = epoch, (entry["val"] or {}).get("cider_d", -1.0)
+                    best_state = {n: p.detach().clone() for n, p in params_by_name.items()}
+            _restore(best_state)
+            model.eval()
+            if hasattr(model, "gradient_checkpointing_disable"):
+                model.gradient_checkpointing_disable()
+            if use_cache is not None:
+                model.config.use_cache = use_cache
+        except BaseException:
+            _restore(frozen_state)
+            model.eval()
+            if hasattr(model, "gradient_checkpointing_disable"):
+                model.gradient_checkpointing_disable()
+            self.adapter = previous_adapter
+            raise
+        self.adapter = {
+            "task": "image captioning",
+            "trained": "built-in vision LoRA of the last decoder layers (A/B tensors)",
+            "trained_layers": trained_layers,
+            "trainable_names": names,
+            "n_trainable": n_trainable,
+            "n_parameters_as_loaded": sum(p.numel() for p in model.parameters()),  # 4-bit tensors count packed elements
+            "quantization": self.quantization,
+            "instruction": instruction,
+            "epochs": epochs,
+            "best_epoch": best_epoch,
+            "selection": "highest validation CIDEr-D" if val_checked is not None else "final epoch (no validation split)",
+            "loss": "causal cross-entropy on the caption tokens only (prompt tokens masked)",
+            "lr": float(lr),
+            "grad_accumulation": grad_accumulation,
+            "seed": seed,
+            "n_train": len(train_checked),
+            "n_val": len(val_checked) if val_checked is not None else 0,
+            "history": history,
+            "seconds": round(time.perf_counter() - started, 3),
+        }
+        return dict(self.adapter)
+
+    def save_artifact(self, output_dir: str | Path, metadata: Mapping[str, Any] | None = None) -> Path:
+        """Write the trained vision-LoRA tensors as safetensors plus a manifest naming the base, the digests,
+        the licence and the training configuration. Requires a prior `adapt`."""
+        model, _processor = self._require_model()
+        if self.adapter is None:
+            raise RuntimeError("nothing to save: call adapt() first")
+        import torch
+        from safetensors.torch import save_file
+
+        out = Path(output_dir)
+        out.mkdir(parents=True, exist_ok=True)
+        names = list(self.adapter["trainable_names"])
+        params = dict(model.named_parameters())
+        tensors = {name: params[name].detach().to(torch.float16).cpu().contiguous() for name in names}
+        weights = out / ADAPTER_WEIGHTS
+        save_file(tensors, str(weights), metadata={"format": "pt"})
+        manifest = {
+            "format": ARTIFACT_FORMAT,
+            "version": ARTIFACT_VERSION,
+            "license": MODEL_LICENSE,
+            "base": {"model_id": MODEL_ID, "revision": MODEL_REVISION, "weight_file": WEIGHT_FILE, "weight_sha256": self.weight_sha256, "remote_code_files": list(REMOTE_CODE_FILES), "quantization": self.quantization},
+            "adapter": {k: v for k, v in self.adapter.items() if k not in ("history", "trainable_names")},
+            "history": self.adapter["history"],
+            "tensors": sorted(tensors),
+            "tensor_dtype": "float16",
+            "files": [{"path": ADAPTER_WEIGHTS, "bytes": weights.stat().st_size, "sha256": _sha256(weights)}],
+            "torch": torch.__version__,
+            "metadata": dict(metadata or {}),
+        }
+        with open(out / ADAPTER_MANIFEST, "w", encoding="utf-8") as handle:
+            json.dump(manifest, handle, indent=2, ensure_ascii=False)
+        return out
+
+    def load_artifact(self, artifact_dir: str | Path) -> dict[str, Any]:
+        """Overlay a saved adapter onto this (freshly loaded) pipeline after checking its manifest, digest,
+        licence and exact tensor set. Refuses tensors outside the recorded vision-LoRA scope."""
+        model, _processor = self._require_model()
+        from safetensors.torch import load_file
+
+        artifact = Path(artifact_dir)
+        manifest_path = artifact / ADAPTER_MANIFEST
+        if not manifest_path.is_file():
+            raise FileNotFoundError(f"artifact manifest missing: {manifest_path}")
+        with open(manifest_path, encoding="utf-8") as handle:
+            manifest = json.load(handle)
+        _check_artifact_manifest(manifest, artifact, self.weight_sha256 or "")
+        layers = manifest.get("adapter", {}).get("trained_layers")
+        expected = sorted(self._trainable_names(layers))
+        if sorted(manifest["tensors"]) != expected:
+            raise ValueError("artifact tensor set does not match its recorded configuration")
+        tensors = load_file(str(artifact / ADAPTER_WEIGHTS))
+        if sorted(tensors) != expected:
+            raise ValueError("artifact tensor names differ from the manifest")
+        params = dict(model.named_parameters())
+        for name, tensor in tensors.items():
+            if tuple(tensor.shape) != tuple(params[name].shape):
+                raise ValueError(f"artifact tensor {name} has shape {tuple(tensor.shape)}, base has {tuple(params[name].shape)}")
+        import torch
+
+        with torch.no_grad():
+            for name, tensor in tensors.items():
+                params[name].data = tensor.to(device=params[name].device, dtype=params[name].dtype).clone()
+                params[name].requires_grad_(False)
+        model.eval()
+        self.adapter = {**manifest["adapter"], "trainable_names": expected, "history": manifest.get("history", [])}
+        return dict(self.adapter)
+
+    @classmethod
+    def from_artifact(
+        cls,
+        artifact_dir: str | Path,
+        *,
+        allow_remote_code: bool = False,
+        device: str = "cuda",
+        attention_implementation: str = "eager",
+        weights_dir: str | Path | None = None,
+        allow_download: bool = False,
+        quantization: str | None = None,
+    ) -> Phi4MultimodalPipeline:
+        """Load the verified base snapshot, then overlay the adapter (verified before deserialising)."""
+        pipe = cls.from_pretrained(allow_remote_code=allow_remote_code, device=device, attention_implementation=attention_implementation, weights_dir=weights_dir, allow_download=allow_download, quantization=quantization)
+        pipe.load_artifact(artifact_dir)
+        return pipe
+
+
+def _install_adapter_switch(model: Any) -> None:
+    """Replace the checkpoint's `set_lora_adapter` with one that only switches the active adapter.
+
+    Upstream delegates to peft's `set_adapter`, which also flips `requires_grad` on every tensor of the chosen
+    adapter, and the model calls it on **every forward** that carries image or audio inputs. Left in place, each
+    training step would re-enable gradients on all 32 layers' vision LoRA, defeating the bounded trainable set
+    (and failing outright on 4-bit tensors). The replacement sets peft's `_active_adapter` and nothing else; the
+    pipeline owns `requires_grad` explicitly in `adapt`."""
+    from peft.tuners.tuners_utils import BaseTunerLayer
+
+    tuner_layers = [module for module in model.modules() if isinstance(module, BaseTunerLayer)]
+
+    def switch(adapter_name: str) -> None:  # upstream: set_adapter(name) + _disable_adapters = False
+        for module in tuner_layers:
+            module._active_adapter = [adapter_name]
+            module._disable_adapters = False
+
+    def unset() -> None:  # upstream: requires_grad off on every adapter + _disable_adapters = True (text-only path)
+        for module in tuner_layers:
+            module._disable_adapters = True
+
+    model.set_lora_adapter = switch
+    model.unset_lora_adapter = unset
+
+
+def _check_artifact_manifest(manifest: Mapping[str, Any], artifact_dir: Path, base_sha256: str) -> None:
+    if manifest.get("format") != ARTIFACT_FORMAT:
+        raise ValueError(f"artifact format {manifest.get('format')!r} != {ARTIFACT_FORMAT!r}")
+    base = manifest.get("base", {})
+    if (base.get("model_id"), base.get("revision")) != (MODEL_ID, MODEL_REVISION):
+        raise ValueError("artifact was trained on a different base model or revision")
+    if base_sha256 and base.get("weight_sha256") and base["weight_sha256"] != base_sha256:
+        raise ValueError("artifact base weight digest does not match the loaded snapshot")
+    if manifest.get("license") != MODEL_LICENSE:
+        raise ValueError(f"artifact licence {manifest.get('license')!r} != {MODEL_LICENSE!r}")
+    files = {entry["path"]: entry for entry in manifest.get("files", [])}
+    if ADAPTER_WEIGHTS not in files:
+        raise ValueError(f"artifact manifest does not list {ADAPTER_WEIGHTS}")
+    weights = artifact_dir / ADAPTER_WEIGHTS
+    if not weights.is_file():
+        raise FileNotFoundError(f"artifact weights missing: {weights}")
+    if weights.stat().st_size != files[ADAPTER_WEIGHTS]["bytes"]:
+        raise ValueError("artifact weights size does not match the manifest")
+    if _sha256(weights) != files[ADAPTER_WEIGHTS]["sha256"]:
+        raise ValueError("artifact weights digest does not match the manifest")
