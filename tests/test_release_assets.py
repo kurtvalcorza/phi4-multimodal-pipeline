@@ -198,8 +198,10 @@ def test_control_identity_drift_is_rejected(tree: Path) -> None:
 def test_control_conflicting_release_status_is_rejected(tree: Path) -> None:
     module = _load_validator(tree)
     status = tree / "STATUS.md"
-    promoted = status.read_text(encoding="utf-8").replace("**Candidate", "**Release-grade")
-    status.write_text(promoted, encoding="utf-8")
+    # flip whichever token the tree carries so STATUS.md disagrees with README.md and the registry
+    text = status.read_text(encoding="utf-8")
+    flipped = text.replace("**Release-grade", "**Candidate") if "**Release-grade" in text else text.replace("**Candidate", "**Release-grade")
+    status.write_text(flipped, encoding="utf-8")
     with pytest.raises(module.ValidationError, match="status"):
         module.validate_release_status()
 

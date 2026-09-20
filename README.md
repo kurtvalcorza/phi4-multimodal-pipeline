@@ -85,7 +85,7 @@ weights/phi4-multimodal-instruct/
 
 ## Release status
 
-**Candidate** — the E2E carrier, its tests, the generator parity and the release-asset validation are in place; promotion to Release-grade follows the exact committed notebook blob executing top-to-bottom in a clean Kaggle Tesla T4 runtime with no repository checkout (`docs/release-verification.md`). The DIMER upload of the weights stays on HOLD by decision (2026-09-20). Static and unit checks are necessary but are never the evidence.
+**Release-grade** — the `E2E` notebook blob `75ab9bb4` (committed at `1e348e2`) executed top-to-bottom in a clean Kaggle Tesla T4 runtime on 2026-09-20 (11/11 code cells ok (1 restart after the install cell), 2032.3 s, 391 files / 11,257 MB staged and digest-verified inside the notebook (the 26-entry snapshot including the five remote-code files, the 392 MB VizWiz parquet slice and the 336 pinned photographs)); the record is in `docs/release-verification.md` and `STATUS.md`. Static and unit checks — including the standalone generator parity checks — are necessary but were never the evidence; the hosted run is. A later change to the carried modules or the notebook returns the status to Candidate until re-verified. The DIMER upload of the weights stays on HOLD by decision (2026-09-20). Static and unit checks are necessary but are never the evidence.
 
 ## AI Assistance Disclosure
 
