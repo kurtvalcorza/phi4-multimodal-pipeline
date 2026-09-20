@@ -58,10 +58,11 @@ DEFAULT_TEMPERATURE = 0.0  # greedy decoding
 WEIGHT_FILE = "model-00001-of-00003.safetensors"  # the shard whose digest names the base in adapter manifests
 QUANTIZATIONS = (None, "nf4")
 # Modules kept in fp16 under NF4: the output head, the token embeddings and the vision/audio towers and projectors.
-NF4_SKIP_MODULES = ("lm_head", "embed_tokens", "embed_tokens_extend", "image_embed", "audio_embed", "img_processor", "encoder")
+NF4_SKIP_MODULES = ("lm_head", "embed_tokens", "embed_tokens_extend", "image_embed", "audio_embed", "img_processor", "encoder", "lora_A", "lora_B")  # the checkpoint's own LoRA tensors stay fp16 (they are what `adapt` trains)
 VISION_LORA_PATTERN = r"^model\.layers\.(\d+)\..*\.lora_(A|B)\.vision\.weight$"
 DEFAULT_TRAINED_LAYERS = 8  # the built-in vision-LoRA tensors of the last N decoder layers are what `adapt` trains
 CAPTION_MAX_NEW_TOKENS = 40
+CAPTION_MAX_SIDE = 448  # captioning inputs are downscaled to one 448-px tile so the processor does not tile a phone photo into thousands of tokens
 MIN_SCORED_RECORDS = 50
 MAX_EVAL_RECORDS = 5_000
 ARTIFACT_FORMAT = f"org.valcorza.{MODEL_KEY}.adapter.v1"
@@ -242,6 +243,16 @@ def validate_image(image: Any) -> Image.Image:
     if max(width, height) > MAX_IMAGE_SIDE:
         raise ValueError(f"image side {max(width, height)} px > MAX_IMAGE_SIDE {MAX_IMAGE_SIDE}")
     return image.convert("RGB")
+
+
+def caption_view(image: Image.Image, *, max_side: int = CAPTION_MAX_SIDE) -> Image.Image:
+    """The image as the captioning contract feeds it: RGB, long side at most `max_side` px (aspect kept), so the
+    processor's dynamic tiling yields one or two 448-px crops (about 550 tokens) for any photograph."""
+    rgb = validate_image(image)
+    scale = max_side / max(rgb.size)
+    if scale >= 1.0:
+        return rgb
+    return rgb.resize((max(1, round(rgb.width * scale)), max(1, round(rgb.height * scale))), Image.BICUBIC)
 
 
 def _observe_image(image: Any) -> dict[str, Any]:
@@ -447,6 +458,8 @@ class Phi4MultimodalPipeline:
         ).eval()
         for param in (model.parameters() if hasattr(model, "parameters") else ()):  # tests stub the model
             param.requires_grad_(False)
+        if hasattr(model, "set_lora_adapter"):
+            _install_adapter_switch(model)
         model_name = location.get("pretrained_model_name_or_path", MODEL_ID)
         gen_kwargs = {k: v for k, v in location.items() if k != "pretrained_model_name_or_path"}
         try:
@@ -536,11 +549,10 @@ class Phi4MultimodalPipeline:
         max_new_tokens: int = CAPTION_MAX_NEW_TOKENS,
     ) -> dict[str, Any]:
         """One greedy caption for one image through the vision LoRA (the model's image path)."""
-        checked = validate_image(image)
-        model, _processor = self._require_model()
-        model.set_lora_adapter("vision")
-        result = self.generate(instruction, images=[checked], max_new_tokens=max_new_tokens, temperature=0.0)
-        return {"caption": result["text"], "instruction": instruction, "max_new_tokens": max_new_tokens, "adapted": self.adapter is not None, "model_id": MODEL_ID, "model_revision": MODEL_REVISION}
+        view = caption_view(image)
+        self._require_model()
+        result = self.generate(instruction, images=[view], max_new_tokens=max_new_tokens, temperature=0.0)
+        return {"caption": result["text"], "instruction": instruction, "max_new_tokens": max_new_tokens, "image_size": list(view.size), "adapted": self.adapter is not None, "model_id": MODEL_ID, "model_revision": MODEL_REVISION}
 
     def evaluate(
         self,
@@ -690,7 +702,7 @@ class Phi4MultimodalPipeline:
                     answer = references[(epoch - 1) % len(references)]
                     with Image.open(record["image"]) as image:
                         image.load()
-                        encoded, prompt_len = self._encode_pair(image.convert("RGB"), instruction, answer)
+                        encoded, prompt_len = self._encode_pair(caption_view(image), instruction, answer)
                     encoded = encoded.to(device)
                     labels = encoded["input_ids"].clone()
                     labels[:, :prompt_len] = -100
@@ -725,7 +737,7 @@ class Phi4MultimodalPipeline:
             "trained_layers": trained_layers,
             "trainable_names": names,
             "n_trainable": n_trainable,
-            "n_total": sum(p.numel() for p in model.parameters()),
+            "n_parameters_as_loaded": sum(p.numel() for p in model.parameters()),  # 4-bit tensors count packed elements
             "quantization": self.quantization,
             "instruction": instruction,
             "epochs": epochs,
@@ -825,6 +837,31 @@ class Phi4MultimodalPipeline:
         pipe = cls.from_pretrained(allow_remote_code=allow_remote_code, device=device, attention_implementation=attention_implementation, weights_dir=weights_dir, allow_download=allow_download, quantization=quantization)
         pipe.load_artifact(artifact_dir)
         return pipe
+
+
+def _install_adapter_switch(model: Any) -> None:
+    """Replace the checkpoint's `set_lora_adapter` with one that only switches the active adapter.
+
+    Upstream delegates to peft's `set_adapter`, which also flips `requires_grad` on every tensor of the chosen
+    adapter, and the model calls it on **every forward** that carries image or audio inputs. Left in place, each
+    training step would re-enable gradients on all 32 layers' vision LoRA, defeating the bounded trainable set
+    (and failing outright on 4-bit tensors). The replacement sets peft's `_active_adapter` and nothing else; the
+    pipeline owns `requires_grad` explicitly in `adapt`."""
+    from peft.tuners.tuners_utils import BaseTunerLayer
+
+    tuner_layers = [module for module in model.modules() if isinstance(module, BaseTunerLayer)]
+
+    def switch(adapter_name: str) -> None:  # upstream: set_adapter(name) + _disable_adapters = False
+        for module in tuner_layers:
+            module._active_adapter = [adapter_name]
+            module._disable_adapters = False
+
+    def unset() -> None:  # upstream: requires_grad off on every adapter + _disable_adapters = True (text-only path)
+        for module in tuner_layers:
+            module._disable_adapters = True
+
+    model.set_lora_adapter = switch
+    model.unset_lora_adapter = unset
 
 
 def _check_artifact_manifest(manifest: Mapping[str, Any], artifact_dir: Path, base_sha256: str) -> None:
