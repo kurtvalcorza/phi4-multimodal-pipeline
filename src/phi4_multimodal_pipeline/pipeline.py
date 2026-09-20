@@ -682,6 +682,11 @@ class Phi4MultimodalPipeline:
             n_trainable = sum(p.numel() for p in params)
             use_cache = getattr(model.config, "use_cache", None)
             model.config.use_cache = False
+            # The remote vision encoder is built with gradient_checkpointing=True and, in train mode, calls the
+            # checkpointing function transformers installs here; without this call its forward raises. It also
+            # bounds activation memory on a 16 GB card.
+            if hasattr(model, "gradient_checkpointing_enable"):
+                model.gradient_checkpointing_enable()
             entry: dict[str, Any] = {"epoch": 0, "train_loss": None, "val": _val(), "note": "frozen model"}
             history.append(entry)
             if progress is not None:
@@ -724,11 +729,15 @@ class Phi4MultimodalPipeline:
                     best_state = {n: p.detach().clone() for n, p in params_by_name.items()}
             _restore(best_state)
             model.eval()
+            if hasattr(model, "gradient_checkpointing_disable"):
+                model.gradient_checkpointing_disable()
             if use_cache is not None:
                 model.config.use_cache = use_cache
         except BaseException:
             _restore(frozen_state)
             model.eval()
+            if hasattr(model, "gradient_checkpointing_disable"):
+                model.gradient_checkpointing_disable()
             self.adapter = previous_adapter
             raise
         self.adapter = {
