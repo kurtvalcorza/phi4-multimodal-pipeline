@@ -99,6 +99,7 @@ def template_contract() -> dict[str, str]:
         "package_dir": "OPTIONAL repository-relative directory of the package (default 'src/<package>'; e.g. 'mitra_pipeline' for a root-level package)",
         "pins_file": "OPTIONAL repository-relative requirements file that REPLACES pyproject dependencies as the inline PINS: one `name==ver` or `name @ git+url@sha` per line; `--index-url URL`, `--extra-index-url URL`, `--find-links URL` lines are honoured (passed to pip in order); comments/blank lines ignored",
         "model_host": "OPTIONAL {name, reference_url, revision_label} for a non-Hub checkpoint host (default: Hugging Face Hub, https://huggingface.co/<MODEL_ID>, 'revision'); the package's own stage_missing_files downloader must fetch from it",
+        "model_cell_note": "OPTIONAL sentence that replaces the model cell's default 'There is no fallback to a different download and no remote model code is executed.' - for a row whose checkpoint ships its own model code inside the verified perimeter, state that fact here instead",
     }
 
 
@@ -506,8 +507,9 @@ def render(repo: Path, template: dict[str, Any], revision: str | None = None) ->
             "byte sizes, SHA-256) — and the cell first asserts they agree. It writes the manifest into the working-directory snapshot, then "
             f"`stage_missing_files(..., allow_download=True)` fetches exactly the entries that are absent from {ctx['host']['name']} **at {ctx['host']['revision_label']} "
             f"`{ctx['MODEL_REVISION'][:12]}…`** (never `main`), `verify_snapshot` re-hashes every file and raises on the first size or digest mismatch, "
-            f"and only then does `{load_expr}` load the verified files. There is no fallback to a different download and no remote model code is "
-            f"executed.{extra_note} The effective identity, device and weight source are printed before any inference."
+            f"and only then does `{load_expr}` load the verified files. "
+            + template.get("model_cell_note", "There is no fallback to a different download and no remote model code is executed.")
+            + f"{extra_note} The effective identity, device and weight source are printed before any inference."
         )
     )
     ie = ctx["ident_expr"]

@@ -23,63 +23,88 @@ ROOT = Path(__file__).resolve().parents[1]
 PACKAGE = "phi4_multimodal_pipeline"
 REPO_NAME = "phi4-multimodal-pipeline"
 NOTEBOOK_NAME = "phi4_multimodal_colab.ipynb"
-EXPECTED_PROFILE = "MULTI-CAPABILITY"
+EXPECTED_PROFILE = "E2E"
 EXPECTED_MODEL_ID = "microsoft/Phi-4-multimodal-instruct"
 PIPELINE_CLASS = "Phi4MultimodalPipeline"
 # INF1: the exact load expression the model cell must use (the template's `model_load` carries the remote-code opt-in).
-MODEL_LOAD_EXPR = f"{PIPELINE_CLASS}.from_pretrained(allow_remote_code=True, weights_dir=WEIGHTS_DIR)"
-# Additional 40-hex revisions a document may legitimately cite (none by default).
-KNOWN_SHAS: frozenset[str] = frozenset(())
+MODEL_LOAD_EXPR = f"{PIPELINE_CLASS}.from_pretrained(allow_remote_code=True, weights_dir=WEIGHTS_DIR, quantization='nf4')"
+# Additional 40-hex revisions a document may legitimately cite: the VizWiz-Captions dataset revision (samples.py CORPUS_REVISION).
+KNOWN_SHAS: frozenset[str] = frozenset(("c4a6d897836e7885d0095134f92d392e4e770539",))
 # Colab form gates that must default to the non-interactive sample path.
 BYOD_GATES = ("USE_BYOD",)
 # Machine-readable artifacts the notebook must write (OUT1-OUT3, DAT24, EVAL21).
 EXPECTED_OUTPUTS = (
+    "outputs/phi4_multimodal_train.jsonl",
     "outputs/phi4_multimodal_input_manifest.json",
     "outputs/phi4_multimodal_evaluation_report.json",
+    "outputs/phi4_multimodal_adapter",
     "outputs/phi4_multimodal_result.json",
-    "outputs/phi4_multimodal_generations.txt",
 )
 # Profile-specific code the notebook must exercise through the carried module's public API.
 CODE_MARKERS = (
+    "annotations = fetch_annotations(cache_dir='weights/vizwiz-captions')",
+    "image_paths = fetch_images(sorted(IMAGE_PINS), cache_dir='weights/vizwiz-captions')",
+    "splits = build_sample_dataset(annotations, seed=SPLIT_SEED, image_paths=image_paths)",
+    "records = load_byod_dataset(records_file)",
+    "splits = split_dataset(records, seed=SPLIT_SEED, base_dir=byod_dir)",
+    "dataset_manifests = {name: validate_dataset(part) for name, part in splits.items()}",
+    "disjoint = check_split_disjoint(splits)",
+    "write_dataset_jsonl(train_records, 'outputs/phi4_multimodal_train.jsonl')",
+    "validate_dataset(probe)",
     "'text': validate_inputs(TEXT_INSTRUCTION, max_new_tokens=96),",
-    "'image': validate_inputs(IMAGE_INSTRUCTION, images=[image], max_new_tokens=96, names=[image_name]),",
-    "'audio': validate_inputs(AUDIO_INSTRUCTION, audios=[audio], max_new_tokens=128, names=[audio_name]),",
-    "validate_inputs(IMAGE_INSTRUCTION, images=[image] * (MAX_IMAGES + 1))",
+    "'image': validate_inputs(IMAGE_INSTRUCTION, images=[sign], max_new_tokens=96, names=['synthetic_octagon_256.png']),",
+    "'audio': validate_inputs(AUDIO_INSTRUCTION, audios=[audio], max_new_tokens=128, names=[SAMPLE_AUDIO.name]),",
+    "validate_inputs(IMAGE_INSTRUCTION, images=[sign] * (MAX_IMAGES + 1))",
     "text_result = pipe.generate(TEXT_INSTRUCTION, max_new_tokens=96, temperature=0.0)",
-    "image_result = pipe.generate(IMAGE_INSTRUCTION, images=[image], max_new_tokens=96, temperature=0.0)",
+    "image_result = pipe.generate(IMAGE_INSTRUCTION, images=[sign], max_new_tokens=96, temperature=0.0)",
     "audio_result = pipe.generate(AUDIO_INSTRUCTION, audios=[audio], max_new_tokens=128, temperature=0.0)",
-    "report = evaluation_report(results, sample_kind=sample_kind)",
-    "print({'ceilings': {'MAX_IMAGES': MAX_IMAGES, 'MAX_AUDIOS': MAX_AUDIOS, 'MAX_NEW_TOKENS': MAX_NEW_TOKENS, 'MAX_TEMPERATURE': MAX_TEMPERATURE}})",
+    "capability_report = evaluation_report(capability_results, sample_kind='synthetic + checkpoint example')",
+    "sign_caption = pipe.caption(sign)",
     "SAMPLE_AUDIO = WEIGHTS_DIR / 'examples' / 'what_is_the_traffic_sign_in_the_image.wav'",
     "waveform, sampling_rate = sf.read(SAMPLE_AUDIO, dtype='float32')",
-    "audio = (waveform, sampling_rate)",
     "draw.polygon(octagon, fill=(200, 16, 24), outline=(255, 255, 255), width=max(2, side // 40))",
-    "hashlib.sha256(np.asarray(image.convert('RGB')).tobytes()).hexdigest()",
+    "baseline_constant = constant_caption_baseline(train_records, test_records)",
+    "baseline_neighbour = colour_neighbour_baseline(train_records, test_records)",
+    "frozen_test = pipe.evaluate(test_records,",
+    "assert frozen_test['cider_d'] > baseline_constant['cider_d']",
+    "adapt_result = pipe.adapt(train_records, val_records, epochs=EPOCHS, lr=LEARNING_RATE, trained_layers=TRAINED_LAYERS, grad_accumulation=GRAD_ACCUMULATION, seed=SEED, progress=report)",
+    "adapted_test = pipe.evaluate(test_records,",
+    "adapted_val = pipe.evaluate(val_records)",
+    "assert adapted_test['cider_d'] > frozen_test['cider_d']",
+    "assert adapted_test['cider_d'] > max(baseline_constant['cider_d'], baseline_neighbour['cider_d'])",
+    "pipe.save_artifact(artifact_dir, metadata={'tutorial': 'phi4_multimodal', 'data_source': data_source})",
+    "reloaded = Phi4MultimodalPipeline.from_artifact(artifact_dir, allow_remote_code=True, weights_dir=WEIGHTS_DIR, quantization='nf4')",
+    "assert parity['identical_captions'] == parity['of']",
     "'remote_code_files': list(REMOTE_CODE_FILES)",
     "'model_revision': MODEL_REVISION",
     "'model_license': MODEL_LICENSE",
+    "'weight_file': WEIGHT_FILE, 'weight_format': 'safetensors, digest-verified', 'weight_sha256': reloaded.weight_sha256, 'quantization': 'nf4'",
+    "'corpus': {'name': CORPUS_NAME, 'repo': CORPUS_REPO, 'revision': CORPUS_REVISION, 'release': CORPUS_RELEASE, 'license': CORPUS_LICENSE",
     "transformers.__version__",
-    "'device': pipe.device",
-    "'attention_implementation': pipe.attention_implementation",
+    "'device': runtime_device, 'attention_implementation': runtime_attention",
 )
 # Profile-specific learner-facing statements.
 MARKDOWN_MARKERS = (
-    "**Capability:** text-, image-, and audio-conditioned text generation using one pinned",
-    "**No adaptation occurs:**",
-    "**Trust boundary (MOD9/MOD10):**",
-    "`trust_remote_code=True` inside the carried",
-    "gated behind `allow_remote_code=True`",
-    "pins each of those files by SHA-256 in",
-    "re-hashes them before they are imported",
-    "## 6. Capability A — text-only generation",
-    "## 7. Capability B — image + text",
-    "## 8. Capability C — audio + text",
-    "**Input contract:**",
-    "**Output contract:**",
-    "not a calibrated statement",
-    "the verdict is `not-measurable`",
-    "A `sample-sanity` verdict is deliberately not available here",
-    "fine-tuning (the checkpoint's `sample_finetune_*.py` scripts are pinned but never run)",
+    "**Capability:** text-, image- and audio-conditioned generation from one pinned",
+    "**This checkpoint ships its own model code**",
+    "`trust_remote_code=True` behind the explicit `allow_remote_code=True` opt-in",
+    "**MIT** licence",
+    "**adaptation with labelled photographs**",
+    "**own vision LoRA in the last eight decoder layers**",
+    "**Snapshot note:**",
+    "## 4. VizWiz-Captions sample and split",
+    "## 5. The three inference capabilities through the contract",
+    "## 6. Baselines and the frozen model on the held-out photographs",
+    "## 7. Bounded fine-tuning of the checkpoint's vision LoRA",
+    "## 8. Held-out evaluation",
+    "## 9. Before and after, export the adapter and reload it",
+    "**constant caption**",
+    "**colour nearest neighbour**",
+    "**validation CIDEr-D**",
+    "**no dispersion estimate**",
+    "**Labelling convention:**",
+    "**Leakage:**",
+    "the 4-bit load needs CUDA",
 )
 # FORBIDDEN_PATTERNS labels that are checked outside the carried module cells only: this upstream model
 # is loadable only with trust_remote_code=True, which the carried loader enables behind an explicit
@@ -99,6 +124,15 @@ FORBIDDEN_OUTSIDE_MODULE = (
     "AutoModelForCausalLM",
     "AutoProcessor",
     "GenerationConfig",
+    "BitsAndBytesConfig",
+    "from peft",
+    "set_lora_adapter",
+    "torch.optim",
+    ".backward(",
+    "requires_grad",
+    "from safetensors",
+    "pipe._model",
+    "pipe._head",
     "from datasets import",
     "load_dataset(",
     "urlopen(",
