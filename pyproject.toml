@@ -24,7 +24,7 @@ dependencies = [
   "pyarrow==19.0.1",
 ]
 [project.optional-dependencies]
-dev = ["pytest==9.0.2", "ruff==0.12.10"]
+dev = ["pytest==9.0.2", "ruff==0.16.6"]
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
