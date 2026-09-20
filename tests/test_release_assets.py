@@ -200,7 +200,10 @@ def test_control_conflicting_release_status_is_rejected(tree: Path) -> None:
     status = tree / "STATUS.md"
     # flip whichever token the tree carries so STATUS.md disagrees with README.md and the registry
     text = status.read_text(encoding="utf-8")
-    flipped = text.replace("**Release-grade", "**Candidate") if "**Release-grade" in text else text.replace("**Candidate", "**Release-grade")
+    if "**Release-grade" in text:
+        flipped = text.replace("**Release-grade", "**Candidate")
+    else:
+        flipped = text.replace("**Candidate", "**Release-grade")
     status.write_text(flipped, encoding="utf-8")
     with pytest.raises(module.ValidationError, match="status"):
         module.validate_release_status()
