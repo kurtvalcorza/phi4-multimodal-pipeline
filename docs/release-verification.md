@@ -20,7 +20,7 @@ CI runs `tools/validate_release_assets.py`, which checks:
   generator's documented rewrites; the inline `MANIFEST` (26 entries: the three weight shards, the configs, the
   tokenizer files, the example clip **and the eight upstream `.py` files**) equal to the committed snapshot manifest
   and the inline `PINS` equal to the `pyproject.toml` runtime pins; the notebook byte-identical (on LF) to
-  `tools/build_notebook.py` output; the pinned-install cell with its restart-on-stale-import guard; `NOTEBOOK_SOURCE`
+  `tools/build_notebook.py` output; the single kernel cell that builds (or reuses, by lock digest) the isolated hash-locked uv environment and routes every later cell to it, with no `pip install` into the kernel and no restart request; `NOTEBOOK_SOURCE`
   recorded in exports;
 - `MODEL_ID`/`MODEL_REVISION` bound only in the carried module cell (and repeated in the inline manifest, which the
   notebook asserts against the module before fetching), the revision a 40-hex immutable commit, and the same identity
@@ -82,8 +82,8 @@ Before changing the registry status from `Candidate` to `Release-grade`:
    `PINS` (= `pyproject.toml`): `torch==2.6.0`, `torchaudio==2.6.0`, `torchvision==0.21.0`, `transformers==4.48.2`,
    `accelerate==1.3.0`, `huggingface-hub==0.36.2`, `soundfile==0.13.1`, `pillow==11.1.0`, `scipy==1.15.2`,
    `backoff==2.2.1`, `peft==0.13.2`, `bitsandbytes==0.45.5`, `safetensors==0.5.3`, `numpy==1.26.4`,
-   `pyarrow==19.0.1` (an interpreter restart after the install is expected where the image's preinstalled numpy or
-   Pillow differ from the pins);
+   `pyarrow==19.0.1` (they are installed into the isolated environment Section 1 builds, so no interpreter restart is
+   expected);
 5. verify every default-path stage completes:
    - pinned runtime installed from the inline `PINS` with no GitHub access;
    - the three carried module cells execute (defining `Phi4MultimodalPipeline`, `validate_inputs`,

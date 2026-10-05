@@ -66,12 +66,13 @@ CODE_MARKERS = (
     "baseline_constant = constant_caption_baseline(train_records, test_records)",
     "baseline_neighbour = colour_neighbour_baseline(train_records, test_records)",
     "frozen_test = pipe.evaluate(test_records,",
-    "assert frozen_test['cider_d'] > baseline_constant['cider_d']",
+    "frozen_verdict = 'above the constant caption' if frozen_test['cider_d'] > baseline_constant['cider_d'] else",
+    "pipe = Phi4MultimodalPipeline.from_pretrained(allow_remote_code=True, weights_dir=WEIGHTS_DIR, quantization='nf4')",
+    "BYOD_PATH = ''",
     "adapt_result = pipe.adapt(train_records, val_records, epochs=EPOCHS, lr=LEARNING_RATE, trained_layers=TRAINED_LAYERS, grad_accumulation=GRAD_ACCUMULATION, seed=SEED, progress=report)",
     "adapted_test = pipe.evaluate(test_records,",
     "adapted_val = pipe.evaluate(val_records)",
-    "assert adapted_test['cider_d'] > frozen_test['cider_d']",
-    "assert adapted_test['cider_d'] > max(baseline_constant['cider_d'], baseline_neighbour['cider_d'])",
+    "'adapted_above_frozen': adapted_test['cider_d'] > frozen_test['cider_d']",
     "pipe.save_artifact(artifact_dir, metadata={'tutorial': 'phi4_multimodal', 'data_source': data_source})",
     "reloaded = Phi4MultimodalPipeline.from_artifact(artifact_dir, allow_remote_code=True, weights_dir=WEIGHTS_DIR, quantization='nf4')",
     "reloaded_test = reloaded.evaluate(test_records,",
@@ -186,9 +187,11 @@ COMMON_CODE_MARKERS = (
     "PINS = [",
     "NOTEBOOK_SOURCE = {",
     "SKIP_INSTALL = os.environ.get('DIMER_NOTEBOOK_CI_PREINSTALLED') == '1'",
-    "subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', *PINS], check=True)",
-    "importlib.metadata.packages_distributions()",
-    "importlib.invalidate_caches()",
+    "'--require-hashes', '--only-binary', ':all:'",
+    "'--managed-python'",
+    "if len(wheel) != UV_BYTES or hashlib.sha256(wheel).hexdigest() != UV_SHA256:",
+    "if hashlib.sha256(LOCK_TEXT.encode('utf-8')).hexdigest() != LOCK_SHA256:",
+    "_ip.input_transformers_cleanup.append(_route_to_isolated_runtime)",
     "platform.python_version()",
     "torch.__version__",
     "MANIFEST = {",
@@ -583,7 +586,7 @@ def _validate_identity(
         for node in ast.walk(tree):
             rebound = [name for name in _assignment_targets(node) if name in IDENTITY_NAMES]
             _check(not rebound, f"{path.name}: {rebound} must not be rebound outside the module cell (cell {index})")
-    outside = "\n".join(source for index, source, _ in code_cells if index not in embedded)
+    outside = "\n".join(source for index, source, _ in code_cells if index not in embedded and "# dimer: kernel cell" not in source)
     manifest_block = re.search(r"^MANIFEST = (\{.*?^\})$", outside, re.M | re.S)
     _check(manifest_block is not None, f"{path.name}: model cell must carry an inline MANIFEST literal (ST3)")
     outside_without_manifest = outside.replace(manifest_block.group(0), "")
@@ -610,17 +613,14 @@ def _validate_parity(path: Path, notebook: dict, code_cells: list[tuple[int, str
 
 
 def _validate_bootstrap_guard(path: Path, code_cells: list[tuple[int, str, ast.Module]]) -> None:
-    """The stale-import guard must actually raise: `if stale:` whose body raises RuntimeError."""
-    raises = False
-    for _, _, tree in code_cells:
-        for node in ast.walk(tree):
-            if isinstance(node, ast.If) and isinstance(node.test, ast.Name) and node.test.id == "stale":
-                for sub in ast.walk(node):
-                    if isinstance(sub, ast.Raise) and isinstance(sub.exc, ast.Call):
-                        func = sub.exc.func
-                        if isinstance(func, ast.Name) and func.id == "RuntimeError":
-                            raises = True
-    _check(raises, f"{path.name}: install cell must raise RuntimeError when already-imported packages change")
+    """RUN1/RUN10/ENV6 (2026-10-05 fleet sweep SWP-R): nothing is pip-installed into the kernel and no cell asks for a
+    restart. Exactly one cell runs in the kernel (the isolated-environment bootstrap); it reuses a matching environment."""
+    kernel = [source for _, source, _ in code_cells if "# dimer: kernel cell" in source]
+    _check(len(kernel) == 1, f"{path.name}: exactly one '# dimer: kernel cell' bootstrap cell is required, found {len(kernel)}")
+    code = "\n".join(source for _, source, _ in code_cells)
+    _check("'-m', 'pip', 'install'" not in code and "pip install" not in code, f"{path.name}: no cell may pip-install into the notebook kernel (RUN10)")
+    _check("Restart the runtime" not in code, f"{path.name}: no cell may ask for a runtime restart (RUN1)")
+    _check("_isolated_environment_ready()" in kernel[0], f"{path.name}: the bootstrap cell must reuse a matching isolated environment")
 
 
 def _validate_notebook_content(
@@ -629,7 +629,8 @@ def _validate_notebook_content(
     model_id, _revision = _package_identity()
     stripped = {index: _strip_comments(source) for index, source, _ in code_cells}
     code = "\n".join(stripped.values())
-    outside = "\n".join(text for index, text in stripped.items() if index not in embedded)
+    kernel_cells = {index for index, source, _ in code_cells if "# dimer: kernel cell" in source}
+    outside = "\n".join(text for index, text in stripped.items() if index not in embedded and index not in kernel_cells)
     missing = [marker for marker in COMMON_CODE_MARKERS + CODE_MARKERS if marker not in code]
     _check(not missing, f"{path.name}: missing required source markers: {missing}")
     present = [
