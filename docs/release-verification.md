@@ -129,7 +129,13 @@ Notebook identity is the Git blob id of `tutorials/phi4_multimodal_colab.ipynb` 
 by the executor and include installs and the model download; they are measurements for the stated runtime, not
 general estimates.
 
-### `E2E` standalone carrier (NOTEBOOK_SPEC 2.0) — current notebook
+### `E2E` standalone carrier, isolated runtime (NOTEBOOK_SPEC 2.2) — current notebook
+
+| Date (UTC) | Commit / notebook blob | Executor | Path exercised | Wall | Outcome |
+|---|---|---|---|---|---|
+| 2026-10-08 | `3724d7c` / `ccd411d4` | Colab CLI 0.7.4 sequential execution, fresh Colab Tesla T4 (kernel Python 3.13.15; isolated managed CPython 3.12.12, 52 hash-locked packages, built in 68 s); not a browser Run all | Default sample path, one pass, **no restart**, empty Hugging Face cache, no repository checkout (blob verified before execution); BYOD and experiment re-runs not exercised | 2221.4 s | **PASSED** — 12/12 code cells, 0 error outputs; baselines constant-caption / colour-neighbour CIDEr-D 0.052 / 0.042; frozen 4-bit model BLEU-4 0.171 / ROUGE-L 0.439 / CIDEr-D 0.722 (mean 14.1 words); `adapt` 1100.7 s, validation CIDEr-D 0.835 → 0.910 → 1.010 (best epoch 2; train loss 2.607 → 2.382); adapted BLEU-4 0.262 / ROUGE-L 0.489 / CIDEr-D 0.890 (mean 11.2 words against 12.1 in the references; +0.168 over frozen); adapter 64 tensors / 184,557,520 bytes (SHA-256 `79aab939…`); reload parity 7 of 8 captions verbatim (the eighth lost a trailing full stop), reloaded CIDEr-D 0.8893 vs 0.8900 (0.0007). Evidence: `docs/execution-evidence/2026-10-08-3724d7c/` (executed notebook SHA-256 `478ce154…`) |
+
+### Previous `E2E` standalone carrier, in-kernel install (NOTEBOOK_SPEC 2.0) — history
 
 | Date (UTC) | Commit / notebook blob | Executor | Path exercised | Wall | Outcome |
 |---|---|---|---|---|---|
@@ -146,10 +152,4 @@ general estimates.
 
 ## Current status
 
-**Release-grade.** The `E2E` notebook blob `75ab9bb4` (committed at `1e348e2`) executed top-to-bottom in a clean Kaggle
-Tesla T4 runtime on 2026-09-20 (11/11 ok, 2032.3 s, 391 files / 11,257 MB staged and digest-verified inside the notebook,
-remote code hashed before import) with no repository checkout — the REL1/REL10 supported-runtime evidence this file gates
-on. The two earlier E2E runs (v3, v4) are history: identical frozen and adapted numbers, each stopped by one defect that the
-next revision fixed. Any later change to the carried modules or to the notebook produces a new blob, and the registry
-returns to **Candidate** until a clean run of that blob is recorded here. The DIMER upload of the weights is on HOLD by
-the maintainer's decision (2026-09-20) independently of this gate.
+**Candidate.** The review-fix blob `ccd411d4` (commit `3724d7c`) completed one pass with no restart and 0 errors on a fresh Colab Tesla T4 on 2026-10-08 (Colab CLI 0.7.4 sequential execution, 12/12 code cells, 2221.4 s including a 68 s isolated-environment build of 52 locked packages; constant-caption / colour-neighbour / frozen / adapted test CIDEr-D 0.052 / 0.042 / 0.722 / 0.890; reload parity 7 of 8 captions verbatim, CIDEr-D difference 0.0007) — the REL1/REL10 one-pass evidence for the current blob. REL12 (a hosted BYOD run with one rejected input) and a recorded experiment re-run are not yet recorded, so the status stays Candidate (REL14). The 2026-09-20 Kaggle runs of the in-kernel-install carrier are history: they needed a restart after the install cell. Any later change to the carried modules or to the notebook produces a new blob that needs its own run. The DIMER upload of the weights is on HOLD by the maintainer's decision (2026-09-20) independently of this gate.

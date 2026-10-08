@@ -1,0 +1,96 @@
+[colab] Parsing notebook '/home/kurt/colab-runs/phi4-multimodal-pipeline-3724d7c-4c480b/phi4_multimodal_colab_3724d7c_colab-cli-t4.ipynb'...
+[colab] Executing cell 1/12 - Infrastructure: build (or reuse) the isolated environment and route later cells to it...
+{'isolated_environment': '/content/dimer_isolated_env_c2491a31a0ca', 'reused': False, 'isolated_python': '3.12.12', 'kernel_python': '3.13.15', 'locked_packages': 52, 'setup_seconds': 68}
+{'routed_to': '/content/dimer_isolated_env_c2491a31a0ca/bin/python', 'worker_pid': 1146, 'worker_reused': False}
+[colab] Executing cell 2/12 - Infrastructure: record the runtime...
+{'notebook_source': {'repository': 'phi4-multimodal-pipeline', 'repository_revision': '1985a161cb1f4f975545194d218847f134cd9e95', 'embedded_module': 'src/phi4_multimodal_pipeline/pipeline.py', 'embedded_modules': ['src/phi4_multimodal_pipeline/pipeline.py', 'src/phi4_multimodal_pipeline/metrics.py', 'src/phi4_multimodal_pipeline/samples.py'], 'module_sha256': '3ba6555e89771f8a2b5365d8e61d64868240f3d4d27394e69f0924a2eb256fcd', 'generator': 'build_notebook.py/2.2', 'notebook_spec': '2.2'}, 'python': '3.12.12', 'executable': '/content/dimer_isolated_env_c2491a31a0ca/bin/python', 'torch': '2.6.0+cu124', 'transformers': '4.48.2', 'cuda': True}
+[colab] Executing cell 3/12 - phi4_multimodal-08...
+[colab] Executing cell 4/12 - phi4_multimodal-10...
+[colab] Executing cell 5/12 - phi4_multimodal-12...
+[colab] Executing cell 6/12 - Infrastructure: stage and digest-verify the pinned snapshot, then load the model...
+{'model_id': 'microsoft/Phi-4-multimodal-instruct', 'revision': '93f923e1a7727d1c4f446756212d9d3e8fcc5d81', 'license': 'MIT', 'files': 26, 'total_bytes': 11172645832}
+{'weights_dir': '/content/weights/phi4-multimodal-instruct', 'fetched': ['LICENSE', 'README.md', 'added_tokens.json', 'config.json', 'configuration_phi4mm.py', 'examples/what_is_shown_in_this_image.wav', 'examples/what_is_the_traffic_sign_in_the_image.wav', 'generation_config.json', 'merges.txt', 'model-00001-of-00003.safetensors', 'model-00002-of-00003.safetensors', 'model-00003-of-00003.safetensors', 'model.safetensors.index.json', 'modeling_phi4mm.py', 'preprocessor_config.json', 'processing_phi4mm.py', 'processor_config.json', 'sample_finetune_speech.py', 'sample_finetune_vision.py', 'sample_inference_phi4mm.py', 'special_tokens_map.json', 'speech_conformer_encoder.py', 'tokenizer.json', 'tokenizer_config.json', 'vision_siglip_navit.py', 'vocab.json']}
+{'verified_files': 26, 'revision': '93f923e1a7727d1c4f446756212d9d3e8fcc5d81'}
+/content/dimer_isolated_env_c2491a31a0ca/lib/python3.12/site-packages/transformers/models/auto/image_processing_auto.py:590: FutureWarning: The image_processor_class argument is deprecated and will be removed in v4.42. Please use `slow_image_processor_class`, or `fast_image_processor_class` instead
+  warnings.warn(
+Using a slow image processor as `use_fast` is unset and a slow processor was saved with this model. `use_fast=True` will be the default behavior in v4.48, even if the model was saved with a slow processor. This will result in minor differences in outputs. You'll still be able to use a slow processor with `use_fast=False`.
+/root/.cache/huggingface/modules/transformers_modules/phi4-multimodal-instruct/speech_conformer_encoder.py:2774: FutureWarning: Please specify CheckpointImpl.NO_REENTRANT as CheckpointImpl.REENTRANT will soon be removed as the default and eventually deprecated.
+  lambda i: encoder_checkpoint_wrapper(
+
+Loading checkpoint shards:   0%|          | 0/3 [00:00<?, ?it/s]
+Loading checkpoint shards:  33%|███▎      | 1/3 [00:21<00:43, 21.89s/it]
+Loading checkpoint shards:  67%|██████▋   | 2/3 [00:43<00:21, 21.47s/it]{'device': 'cuda', 'source': 'local-snapshot'}
+
+Loading checkpoint shards: 100%|██████████| 3/3 [00:48<00:00, 13.97s/it]
+Loading checkpoint shards: 100%|██████████| 3/3 [00:48<00:00, 16.04s/it]
+[colab] Executing cell 7/12 - phi4_multimodal-16...
+{'data_source': 'VizWiz-Captions VizWiz-Captions v1 (2020) as re-converted on the Hugging Face Hub, dataset revision c4a6d897 (CC BY 4.0 (Gurari et al. 2020; vizwiz.org/tasks-and-datasets/image-captioning))', 'raw_rows': {'annotations': 1550, 'photographs': 336, 'captioned': 318, 'seconds': 25.1}, 'splits': {'train': 208, 'validation': 40, 'test': 70}, 'text_sha256': '9799ebb13cf6a7e7...', 'pinned_photographs': 336}
+{'train': {'n': 208, 'unique_images': 208, 'categories': {'text': 110, 'no-text': 98}, 'captions_per_image': {'min': 1, 'max': 5}, 'caption_words': {'min': 7, 'max': 58}, 'digest': '3bec1610ac8c9faf...'}}
+{'validation': {'n': 40, 'unique_images': 40, 'categories': {'no-text': 15, 'text': 25}, 'captions_per_image': {'min': 1, 'max': 5}, 'caption_words': {'min': 8, 'max': 42}, 'digest': 'f00752da09b6fb96...'}}
+{'test': {'n': 70, 'unique_images': 70, 'categories': {'no-text': 30, 'text': 40}, 'captions_per_image': {'min': 1, 'max': 5}, 'caption_words': {'min': 7, 'max': 33}, 'digest': '89f298822913dc68...'}}
+{'example': {'id': 'train-0000', 'image': '29705.jpg', 'category': 'text', 'captions': ['An open book with words about math problems I think.', 'Part of a textbook or workbook with printed questions related to science and magnification that has no writing it in.']}}
+{'probe': 'duplicate id', 'rejected': "duplicate id 'same'"}
+{'probe': 'missing photograph', 'rejected': 'records[0]: image file not found: weights/vizwiz-captions/does-not-exist.jpg'}
+{'probe': 'no captions', 'rejected': 'records[0]: captions must be a list of at least 1 reference caption(s)'}
+{'probe': 'too small', 'rejected': '3 records; 8..5000 are required'}
+[colab] Executing cell 8/12 - phi4_multimodal-19...
+{'ceilings': {'MAX_IMAGES': 4, 'MAX_AUDIOS': 4, 'MAX_NEW_TOKENS': 2048, 'MAX_TEMPERATURE': 2.0, 'CAPTION_MAX_SIDE': 448, 'CAPTION_MAX_NEW_TOKENS': 40, 'MIN_RECORDS': 8, 'MAX_RECORDS': 5000, 'device': 'cuda', 'quantization': 'nf4'}}
+You are not running the flash-attention implementation, expect numerical differences.
+/content/dimer_isolated_env_c2491a31a0ca/lib/python3.12/site-packages/torch/utils/checkpoint.py:87: UserWarning: None of the inputs have requires_grad=True. Gradients will be None
+  warnings.warn(
+{'text': 'Automatic speech recognition (ASR) is a technology that converts spoken words into text by analyzing the audio input. It involves complex algorithms that process and interpret human speech patterns to accurately transcribe spoken language into written form.', 'image_count': 0, 'audio_count': 0}
+{'image': 'The most prominent traffic sign in the image is a red octagonal sign with white borders, which is commonly recognized as a stop sign.', 'image_count': 1, 'audio_count': 0}
+{'audio': 'What is the traffic sign in the image?', 'image_count': 0, 'audio_count': 1}
+{'capabilities_verdict': 'not-measurable', 'seconds': 11.5, 'findings': 1}
+{'caption_contract_on_the_sign': 'A red octagon with a white border is shown on a white background.', 'image_size_fed': [256, 256]}
+[colab] Executing cell 9/12 - phi4_multimodal-21...
+{'constant_caption_baseline': {'bleu4': 0.041, 'rouge_l': 0.336, 'cider_d': 0.052, 'unigram_f1': 0.385}, 'n': 70, 'caption': "constant caption 'A person is sitting on the inside of a dark area.'"}
+{'colour_neighbour_baseline': {'bleu4': 0.0, 'rouge_l': 0.227, 'cider_d': 0.042, 'unigram_f1': 0.251}, 'note': 'colour nearest neighbour (208 training images)'}
+{'frozen_test_progress': '35/70'}
+{'frozen_test_progress': '70/70'}
+{'frozen_model_test': {'bleu4': 0.171, 'rouge_l': 0.439, 'cider_d': 0.722, 'unigram_f1': 0.483}, 'mean_words': 14.1, 'n': 70, 'verdict': 'measured', 'seconds': 172.1}
+{'definitions': {'bleu4': 'corpus-level BLEU-4: geometric mean of clipped 1..4-gram precisions against all references, times the brevity penalty against the closest reference length; in 0..1', 'rouge_l': 'mean over images of the LCS-based F-measure (beta 1.2) against the best-matching reference; in 0..1', 'cider_d': 'mean over images of the CIDEr-D consensus score: TF-IDF-weighted 1..4-gram cosine similarity to the references with a Gaussian length penalty (sigma 6), clipped counts, scaled by 10; document frequencies from the references of the evaluated set; typically 0..~1.5 on VizWiz', 'unigram_f1': 'mean over images of the bag-of-words F1 against the best-matching reference; in 0..1'}}
+{'id': 'test-0000', 'frozen': 'A mixer with many knobs and buttons, including a large grey button and a small white button.', 'reference': 'Electronic sound system buttons and switches with a electric cord across it.'}
+{'id': 'test-0001', 'frozen': 'A black keyboard with white letters and symbols.', 'reference': 'I see a keyboard with a lot of numbers'}
+{'id': 'test-0002', 'frozen': 'A bowl of water with six pink objects floating in it.', 'reference': 'Round red object sitting on a brown plate'}
+{'id': 'test-0003', 'frozen': 'The image shows a package of 70 security-lined envelopes.', 'reference': 'a paper package with blue and white colored label with 70 envelopes written on it'}
+{'id': 'test-0004', 'frozen': 'The image shows a flip phone with a floral fabric background. The screen is dark, and the keypad includes letters and symbols.', 'reference': 'A smartphone with a full qwerty keyboard.'}
+{'id': 'test-0005', 'frozen': 'A computer screen displaying a Windows error message.', 'reference': "IMAGE IS CLEAR IT'S A COMPUTER MONITOR SCREEN"}
+{'frozen_verdict_cider_d': 'above the constant caption'}
+[colab] Executing cell 10/12 - phi4_multimodal-24...
+{'epoch': 0, 'train_loss': None, 'val_cider_d': 0.835, 'val_bleu4': 0.198, 'val_rouge_l': 0.466, 'note': 'frozen model'}
+{'epoch': 1, 'train_loss': 2.6067, 'val_cider_d': 0.91, 'val_bleu4': 0.228, 'val_rouge_l': 0.49}
+{'epoch': 2, 'train_loss': 2.382, 'val_cider_d': 1.01, 'val_bleu4': 0.245, 'val_rouge_l': 0.502}
+{'trained': 'built-in vision LoRA of the last decoder layers (A/B tensors)', 'trained_layers': 8, 'trainable_tensors': 64, 'trainable_parameters': 92274688, 'parameters_as_loaded': 3963847488, 'quantization': 'nf4', 'best_epoch': 2, 'selection': 'highest validation CIDEr-D', 'loss': 'causal cross-entropy on the caption tokens only (prompt tokens masked)', 'seconds': 1100.7}
+[colab] Executing cell 11/12 - phi4_multimodal-27...
+{'adapted_test_progress': '35/70'}
+{'adapted_test_progress': '70/70'}
+{'bleu4': {'constant_caption': 0.0412, 'colour_neighbour': 0.0, 'frozen': 0.1713, 'adapted': 0.262}}
+{'rouge_l': {'constant_caption': 0.3357, 'colour_neighbour': 0.2266, 'frozen': 0.4394, 'adapted': 0.4893}}
+{'cider_d': {'constant_caption': 0.0517, 'colour_neighbour': 0.0417, 'frozen': 0.7219, 'adapted': 0.89}}
+{'unigram_f1': {'constant_caption': 0.3849, 'colour_neighbour': 0.2507, 'frozen': 0.4826, 'adapted': 0.5215}}
+{'mean_words': {'frozen': 14.09, 'adapted': 11.24, 'references': 12.07}}
+{'delta_vs_frozen': {'bleu4': 0.0907, 'rouge_l': 0.0499, 'cider_d': 0.1681, 'unigram_f1': 0.0388}}
+{'delta_vs_best_baseline': {'bleu4': 0.2208, 'rouge_l': 0.1536, 'cider_d': 0.8384, 'unigram_f1': 0.1366}}
+{'report': 'outputs/phi4_multimodal_evaluation_report.json', 'cider_d_gain_over_frozen': 0.1681}
+[colab] Executing cell 12/12 - phi4_multimodal-30...
+{'id': 'test-0000', 'frozen': 'A mixer with many knobs and buttons, including a large grey button and a small white button.', 'adapted': 'A black audio mixer with a grey button on the left side.', 'reference': 'Electronic sound system buttons and switches with a electric cord across it.'}
+{'id': 'test-0001', 'frozen': 'A black keyboard with white letters and symbols.', 'adapted': 'A black and white keyboard with a Dell monitor on the screen.', 'reference': 'I see a keyboard with a lot of numbers'}
+{'id': 'test-0002', 'frozen': 'A bowl of water with six pink objects floating in it.', 'adapted': 'A brown bowl with a few pink objects in it.', 'reference': 'Round red object sitting on a brown plate'}
+{'id': 'test-0003', 'frozen': 'The image shows a package of 70 security-lined envelopes.', 'adapted': 'A package of 70 security lined envelopes.', 'reference': 'a paper package with blue and white colored label with 70 envelopes written on it'}
+{'id': 'test-0004', 'frozen': 'The image shows a flip phone with a floral fabric background. The screen is dark, and the keypad includes letters and symbols.', 'adapted': 'A black iPhone is on a floral patterned cloth.', 'reference': 'A smartphone with a full qwerty keyboard.'}
+{'id': 'test-0005', 'frozen': 'A computer screen displaying a Windows error message.', 'adapted': 'A computer screen showing a Windows error message.', 'reference': "IMAGE IS CLEAR IT'S A COMPUTER MONITOR SCREEN"}
+{'artifact': 'outputs/phi4_multimodal_adapter', 'format': 'org.valcorza.phi4-multimodal-instruct.adapter.v1', 'license': 'MIT', 'tensors': 64, 'bytes': 184557520, 'sha256': '79aab939db3e187e...', 'base_remote_code_files': ['configuration_phi4mm.py', 'modeling_phi4mm.py', 'processing_phi4mm.py', 'speech_conformer_encoder.py', 'vision_siglip_navit.py'], 'quantization': 'nf4'}
+{'freed_for_reload': True, 'cuda_allocated_mib': 16}
+
+Loading checkpoint shards:   0%|          | 0/3 [00:00<?, ?it/s]
+Loading checkpoint shards:  33%|███▎      | 1/3 [00:21<00:43, 21.78s/it]
+Loading checkpoint shards:  67%|██████▋   | 2/3 [00:42<00:21, 21.20s/it]
+Loading checkpoint shards: 100%|██████████| 3/3 [00:48<00:00, 14.08s/it]
+Loading checkpoint shards: 100%|██████████| 3/3 [00:48<00:00, 16.06s/it]
+{'caption_differs_after_reload': 'test-0001', 'before': 'A black and white keyboard with a Dell monitor on the screen.', 'after': 'A black and white keyboard with a Dell monitor on the screen'}
+{'reloaded_test_progress': '35/70'}
+{'reloaded_test_progress': '70/70'}
+{'reload_parity': {'identical_captions': 7, 'of': 8, 'test_cider_d': {'adapted': 0.8900053750211887, 'reloaded': 0.8893068582728061}, 'test_cider_d_abs_diff': 0.0007}, 'reloaded_best_epoch': 2, 'reloaded_trained_layers': 8}
+['phi4_multimodal_adapter', 'phi4_multimodal_evaluation_report.json', 'phi4_multimodal_input_manifest.json', 'phi4_multimodal_result.json', 'phi4_multimodal_train.jsonl']
+[colab] Saving notebook with outputs to '/home/kurt/colab-runs/phi4-multimodal-pipeline-3724d7c-4c480b/phi4_multimodal_colab_3724d7c_colab-cli-t4_output.ipynb'...
