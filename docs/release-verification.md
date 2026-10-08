@@ -3,7 +3,7 @@
 `tutorials/phi4_multimodal_colab.ipynb` (`E2E`, **standalone** carrier) is a **release candidate** until the exact
 notebook revision has executed top-to-bottom in a clean supported runtime. Unit tests, JSON validation, code-cell
 compilation, the generator parity checks and `tools/validate_release_assets.py` are necessary checks but are **not**
-runtime evidence under DIMER Notebook Specification 2.0 (REL8). This file is the durable release-gate record for the
+runtime evidence under DIMER Notebook Specification 2.2 (REL8). This file is the durable release-gate record for the
 notebook.
 
 ## Automatic coverage (static, every pull request)
@@ -20,7 +20,7 @@ CI runs `tools/validate_release_assets.py`, which checks:
   generator's documented rewrites; the inline `MANIFEST` (26 entries: the three weight shards, the configs, the
   tokenizer files, the example clip **and the eight upstream `.py` files**) equal to the committed snapshot manifest
   and the inline `PINS` equal to the `pyproject.toml` runtime pins; the notebook byte-identical (on LF) to
-  `tools/build_notebook.py` output; the pinned-install cell with its restart-on-stale-import guard; `NOTEBOOK_SOURCE`
+  `tools/build_notebook.py` output; the single kernel cell that builds (or reuses, by lock digest) the isolated hash-locked uv environment and routes every later cell to it, with no `pip install` into the kernel and no restart request; `NOTEBOOK_SOURCE`
   recorded in exports;
 - `MODEL_ID`/`MODEL_REVISION` bound only in the carried module cell (and repeated in the inline manifest, which the
   notebook asserts against the module before fetching), the revision a 40-hex immutable commit, and the same identity
@@ -54,7 +54,7 @@ CI runs `tools/validate_release_assets.py`, which checks:
 CI also runs `ruff check src tests tools`, `tools/build_notebook.py --check`, and the offline unit suite
 (`tests/test_pipeline.py`, `tests/test_snapshot.py`, `tests/test_adaptation.py`, `tests/test_role_helpers.py`,
 `tests/test_notebook_parity.py`, `tests/test_release_assets.py`; stubbed `transformers` / `torch` where a model is
-needed, no weights, 53 tests). These are source/provenance and unit checks. They are **not** execution evidence.
+needed, no weights, unit tests only). These are source/provenance and unit checks. They are **not** execution evidence.
 
 ## Executor paths
 
@@ -82,8 +82,8 @@ Before changing the registry status from `Candidate` to `Release-grade`:
    `PINS` (= `pyproject.toml`): `torch==2.6.0`, `torchaudio==2.6.0`, `torchvision==0.21.0`, `transformers==4.48.2`,
    `accelerate==1.3.0`, `huggingface-hub==0.36.2`, `soundfile==0.13.1`, `pillow==11.1.0`, `scipy==1.15.2`,
    `backoff==2.2.1`, `peft==0.13.2`, `bitsandbytes==0.45.5`, `safetensors==0.5.3`, `numpy==1.26.4`,
-   `pyarrow==19.0.1` (an interpreter restart after the install is expected where the image's preinstalled numpy or
-   Pillow differ from the pins);
+   `pyarrow==19.0.1` (they are installed into the isolated environment Section 1 builds, so no interpreter restart is
+   expected);
 5. verify every default-path stage completes:
    - pinned runtime installed from the inline `PINS` with no GitHub access;
    - the three carried module cells execute (defining `Phi4MultimodalPipeline`, `validate_inputs`,
