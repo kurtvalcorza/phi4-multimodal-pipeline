@@ -14,6 +14,20 @@ TEMPLATE = {
     "notebook_name": "phi4_multimodal_colab.ipynb",
     "profile": "E2E",
     "mode": "GUIDED",
+    "isolated_runtime": True,
+    "infrastructure_labels": True,
+    # The fleet's uv isolated-environment mechanism (generator /2.2): managed CPython, a
+    # size- and SHA-256-verified uv wheel, and a lock compiled from the pyproject pins with
+    # `uv pip compile pyproject.toml --python-version 3.12 --python-platform x86_64-manylinux_2_28 --generate-hashes
+    # --only-binary :all: -o tutorials/requirements-colab.lock.txt`.
+    "managed_python": "3.12.12",
+    "uv": {
+        "version": "0.12.15",
+        "url": "https://files.pythonhosted.org/packages/1e/fd/432451d732917c49152a291de3ef171aa6b0f1a22d39780fb2c1f085ca4c/uv-0.12.15-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+        "bytes": 20081404,
+        "sha256": "aee9802f46bae436bd91751bb33ddeb379ef1596b5c19df193219d545d244b60",
+    },
+    "lock": "tutorials/requirements-colab.lock.txt",
     "pipeline_class": "Phi4MultimodalPipeline",
     "weights_key": "phi4-multimodal-instruct",
     "modules": ["pipeline.py", "metrics.py", "samples.py"],
@@ -38,7 +52,7 @@ TEMPLATE = {
     ),
     "capability": "text-, image- and audio-conditioned generation from one pinned `microsoft/Phi-4-multimodal-instruct` checkpoint, and bounded supervised fine-tuning of the checkpoint's own vision LoRA (the last eight decoder layers) for image captioning on labelled `{id, image, captions}` records",
     "run_all": (
-        "Selecting **Run all** in a fresh CUDA runtime installs the pinned dependencies, stages and digest-verifies the pinned "
+        "Selecting **Run all** in a fresh CUDA runtime builds an isolated hash-locked environment from the pinned dependencies (nothing is installed into the notebook kernel, so no restart is needed), stages and digest-verifies the pinned "
         "`microsoft/Phi-4-multimodal-instruct` snapshot (three SafeTensors shards, 11.2 GB, and the five model-code files, all re-hashed "
         "before the code is imported), loads the model in 4-bit NF4, reads the digest-pinned VizWiz-Captions sample from the Hub (the four "
         "text columns of one parquet shard over HTTPS range requests, then the 336 photographs of its first row group, every one pinned by "
@@ -47,16 +61,19 @@ TEMPLATE = {
         "BLEU-4 / ROUGE-L / CIDEr-D, runs a bounded fine-tuning of the vision LoRA of the last eight decoder layers with epoch selection on "
         "validation CIDEr-D, scores the held-out photographs again, prints eight before/after captions, exports the adapter as safetensors "
         "with a manifest, frees the model and reloads the artifact into a fresh pipeline to verify parity (verbatim captions reported, held-out CIDEr-D asserted). The default path needs "
-        "no repository clone, no DIMER worker or service, no credential, no upload dialog and no configuration edit (NOTEBOOK_SPEC 2.0 §5). "
-        "On a Kaggle Tesla T4 the whole path takes about 45 minutes, most of it the two epochs of training and the four captioning passes."
+        "no repository clone, no DIMER worker or service, no credential, no upload dialog and no configuration edit (NOTEBOOK_SPEC 2.2 §5). "
+        "Estimate: about 35–45 minutes on a T4 (the recorded Kaggle T4 run of the previous version took 2,032 s, about 34 minutes, before the isolated-environment build was added), most of it the two epochs of training and the four captioning passes."
     ),
     "byod": (
-        "After the tutorial workflow completes, set `USE_BYOD = True` in Section 4 and re-run from that cell to upload one zip holding "
+        "After the tutorial workflow completes, set `USE_BYOD = True` and `BYOD_PATH` (a zip already in the runtime; on Colab an empty path opens an upload dialog) in Section 4 and re-run from that cell **through to the end** (Sections 5–7 reload the frozen model from the verified snapshot automatically when the previous run adapted or freed it) to supply one zip holding "
         "your photographs and a `records.jsonl` (one `{\"id\", \"image\", \"captions\"}` object per line, `image` the file name inside the "
-        "zip, one to five reference captions each; an optional `category`) — at least eight photographs. The records pass through the "
+        "zip, one to five reference captions each; an optional `category`) — **at least 50 photographs**, because the default split puts 15% into validation and 20% into test and every split needs at least eight (49 leave validation with seven). The records pass through the "
         "same validation, image-disjoint split, baselines, frozen evaluation, fine-tuning, held-out evaluation, artifact export and "
         "reload-parity cells as the VizWiz sample. Uploaded files stay inside this runtime. BYOD is optional and never part of the default path."
     ),
+    "guided": {"opening": [(
+        "**Who this notebook is for.** A learner who knows basic Python, has used Colab or Kaggle with a GPU and has met large language models, and wants to see one multimodal checkpoint answer text, image and audio prompts, how captions are scored honestly against baselines, and how a small part of it (the checkpoint's own vision LoRA) is fine-tuned under 4-bit quantization without fooling themselves. The audience is students and practitioners preparing their own captioning data; no prior experience with Phi-4, LoRA or quantization is assumed — each term is explained where it first matters and again in the **Glossary**. A **CUDA GPU of about 16 GB** (a T4) is required.\n\n**Input → Model → Output.**\n\n| | Inference (three capabilities) | Bounded fine-tuning |\n|---|---|---|\n| Input | a text prompt, a photograph, or a short audio clip | VizWiz-Captions photographs with one to five reference captions each (208 train, 40 validation, 70 test) or your own zip |\n| Model | Phi-4-multimodal-instruct (5.6 B parameters) loaded in 4-bit NF4 with its digest-verified model code, greedy decoding | the same model with only the vision LoRA of the last eight decoder layers trained; everything else frozen |\n| Output | generated text (an answer, a caption, a transcript) | held-out BLEU-4 / ROUGE-L / CIDEr-D beside a constant-caption and a colour-neighbour baseline, eight before/after captions, and an fp16 safetensors adapter that reloads with matching captions |\n\n**How to use this notebook.** Choose **Runtime → Change runtime type → T4 GPU**, then **Runtime → Run all** (an estimated 35–45 minutes on a T4). Run all completes in one pass: Section 1 installs nothing into the notebook's own Python, so no restart is needed (the recorded hosted run of the previous version needed one; this version removes it). Sections 1–3 are **infrastructure** — the isolated environment, the carried package and the verified snapshot with its model code — and their cells are collapsed; you may run them without studying them. The learning path starts in Section 4. Form fields (`# @param`) are the only values meant to be edited, and the defaults reproduce the recorded run. Before each principal result the notebook asks you to **Predict**; after it comes a collapsible **Check your reasoning** with a worked answer from the recorded Kaggle T4 run of 20 September 2026. **Troubleshooting**, a **Glossary** and a **Conclusion** template are at the end. Writing your predictions down is optional.\n\n**Roadmap:** 1–3 infrastructure → 4 the VizWiz sample and an image-disjoint split *(evaluation practice)* → 5 the three capabilities through the inference contract → 6 two baselines and the frozen model *(core concept: CIDEr-D and caption length)* → 7 bounded LoRA fine-tuning *(core concept: what is trained)* → 8 held-out evaluation → 9 before/after captions, export, free and reload *(engineering)* → conclude."
+    )]},
     "intro": (
         "`microsoft/Phi-4-multimodal-instruct` is Microsoft's 5.6 B-parameter multimodal instruction model: a Phi-4-Mini language model whose "
         "chat prompt carries `<|image_k|>` and `<|audio_k|>` placeholders that are replaced by SigLIP vision embeddings and conformer speech "
@@ -66,8 +83,9 @@ TEMPLATE = {
         "What this notebook adds to inference is **adaptation with labelled photographs**. The task is VizWiz-Captions (Gurari et al., "
         "2020; CC BY 4.0): photographs taken by blind people, each with several short crowd-written captions that describe what is held, what "
         "a label says, how the shot is framed — a population and a style the model's broad instruction tuning does not target. The frozen "
-        "model captions these photographs fluently but at length; the references are short and practical, and CIDEr-D, the metric a "
-        "captioning result is normally read by, punishes exactly that mismatch. So the honest question is narrow: does a bounded fine-tuning "
+        "model already captions these photographs far better than any caption that ignores the image (in the recorded run its CIDEr-D was "
+        "about fourteen times the best constant caption's), but in its own phrasing, a little longer than the short, practical references; "
+        "CIDEr-D, the metric a captioning result is normally read by, rewards matching that convention. So the honest question is narrow: does a bounded fine-tuning "
         "of the checkpoint's **own vision LoRA in the last eight decoder layers** (92,274,688 parameters; the 4-bit base, the vision tower, "
         "the projector, the first 24 layers' LoRA and the speech LoRA all frozen) on 208 photographs move the held-out CIDEr-D past the "
         "frozen model and past two non-neural baselines? Nothing here is a claim about your photographs: it is one seeded split of one "
@@ -94,9 +112,10 @@ TEMPLATE = {
         "claim that a captioning gain on VizWiz's convention transfers to other photographs or other tasks. The repository exposes none of these."
     ),
     "prerequisites": [
-        "- **Runtime:** a fresh supported runtime (Google Colab or Kaggle, Python 3.12) with a **CUDA GPU of about 16 GB** — the default path loads the 5.6 B model in 4-bit NF4 (about 6.8 GB) and peaks near 9.2 GB while training; a Tesla T4 is the reference device and CPU is not supported for this path. Attention is `eager` for portability. The pinned `torch==2.6.0` install and the three SafeTensors shards (11.2 GB) are the largest downloads of the run; the VizWiz photographs are about 84 MB. Expect about 45 minutes on a T4.",
+        '- **Learner:** basic Python and Colab or Kaggle familiarity; no prior experience with Phi-4, LoRA or quantization. Quantization, LoRA, greedy decoding, BLEU / ROUGE-L / CIDEr-D, baselines and adapters are explained where they are first used and again in the Glossary.',
+        "- **Runtime:** a fresh supported **Linux x86_64** runtime (Google Colab or Kaggle) with a **CUDA GPU of about 16 GB**; Section 1 builds its own Python 3.12.12 environment from a hash-locked list of manylinux wheels, so the Python version of the kernel itself does not matter and nothing is installed into it — the default path loads the 5.6 B model in 4-bit NF4 (about 6.8 GB) and peaks near 9.2 GB while training; a Tesla T4 is the reference device and CPU is not supported for this path. Attention is `eager` for portability. The pinned `torch==2.6.0` install and the three SafeTensors shards (11.2 GB) are the largest downloads of the run; the VizWiz photographs are about 84 MB. Expect an estimated 35–45 minutes on a T4.",
         "- **Knowledge:** basic Python and PIL; what a chat prompt, greedy decoding, `trust_remote_code` and a LoRA adapter mean; what BLEU, ROUGE-L and CIDEr-D measure and why a corpus-level score is comparable only across systems evaluated on the same records.",
-        "- **Data contract:** records are `{id, image, captions}` — `image` the path of a photograph decodable by Pillow with sides within 16..4096 px, `captions` one to five reference strings of at most 500 characters, `id` matching `[A-Za-z0-9_.:-]{1,64}` and unique, an optional `category`. A dataset needs 8..5,000 records; splitting is by image so no photograph lands in two splits. For the captioning contract every photograph is downscaled to at most 448 px on its long side before the processor (one or two 448-px tiles, about 550 tokens), the same for training and inference.",
+        "- **Data contract:** records are `{id, image, captions}` — `image` the path of a photograph decodable by Pillow with sides within 16..4096 px, `captions` one to five reference strings of at most 500 characters, `id` matching `[A-Za-z0-9_.:-]{1,64}` and unique, an optional `category`. A dataset needs 8..5,000 records per split; splitting is by image (15% validation, 20% test) so no photograph lands in two splits, which means a BYOD zip needs **at least 50 photographs** (`BYOD_MIN_PHOTOGRAPHS`; the cell names the split that falls short). For the captioning contract every photograph is downscaled to at most 448 px on its long side before the processor (one or two 448-px tiles, about 550 tokens), the same for training and inference.",
         "- **Validation is structural, not semantic:** every photograph is decoded and every caption bounded, but nothing checks that a caption is right — a mislabelled set is fine-tuned on without complaint.",
         "- **Privacy:** Do not upload confidential or restricted data to a hosted runtime unless you are authorized to process it there. The default path uploads nothing.",
         "- **External access (data):** besides the model snapshot, the default path reads two parts of one object in the Hub dataset repository `mm-eval/VizWiz-Captions` at the immutable revision `c4a6d897…` (`data/val-00004-of-00005.parquet`, 392,245,504 bytes, SHA-256 `4492465a…`): the declared size and SHA-256 are checked against the pins before any byte is read; the four text columns of all 1,550 rows are fetched over HTTPS range requests through `pyarrow` and refused unless their decoded SHA-256 matches; then the image column of row group 0 only (336 JPEG files, about 84 MB) is read the same way, each photograph pinned by size and SHA-256 in the carried module. The corpus is CC BY 4.0 (Gurari et al., 2020); nothing is redistributed by this repository.",
@@ -114,6 +133,7 @@ TEMPLATE = {
                 "Look for: 1,550 annotation rows, 336 pinned photographs of which 318 carry a caption, three digests, the `text` / `no-text` "
                 "category counts (whether the annotators flagged readable text in the photograph), and four refusal probes — a duplicate id, "
                 "a missing photograph, an empty caption list and a dataset too small to use — each rejected before the model does anything."
+                '\n\n**Predict before running:** of the 336 pinned photographs, why might fewer than 336 enter the dataset? And why split by photograph rather than by caption?'
             ),
             "code": (
                 "import collections\n"
@@ -122,22 +142,64 @@ TEMPLATE = {
                 "import json\n"
                 "import zipfile\n\n"
                 "USE_BYOD = False  # @param {{type:\"boolean\"}}\n"
-                "SPLIT_SEED = 42  # @param {{type:\"integer\"}}\n\n"
+                "BYOD_PATH = ''  # @param {{type:\"string\"}}\n"
+                "SPLIT_SEED = 42  # @param {{type:\"integer\"}}\n"
+                "BYOD_MIN_PHOTOGRAPHS = 50  # every split needs MIN_RECORDS: round(0.15 * 50) = 8 validation photographs\n"
+                "BYOD_MAX_EXPANDED_BYTES = 2 * 1024**3  # refuse a zip that expands past 2 GiB\n\n"
                 "os.makedirs('outputs', exist_ok=True)\n"
-                "if USE_BYOD:\n"
-                "    from google.colab import files\n"
-                "    uploaded = files.upload()\n"
-                "    file_name, payload = next(iter(uploaded.items()))\n"
+                'def byod_file(path, kind, suffixes=()):\n'
+                '    """BYOD path first (works on Colab, Kaggle and Jupyter); on Colab an empty path opens the upload dialog."""\n'
+                '    if str(path).strip():\n'
+                '        source = Path(str(path).strip()).expanduser()\n'
+                '        if not source.is_file():\n'
+                "            raise FileNotFoundError(f'BYOD path {{str(source)!r}} does not exist or is not a file (relative paths start at {{os.getcwd()}}); give the path of one {{kind}}.')\n"
+                '    else:\n'
+                '        try:\n'
+                '            from google.colab import files\n'
+                '        except ImportError:\n'
+                "            raise RuntimeError(f'BYOD is on but its path field is empty, and the upload dialog exists only in Google Colab: copy the {{kind}} into this runtime (or attach it as a Kaggle dataset) and set the path field.') from None\n"
+                '        uploaded = files.upload()\n'
+                '        if len(uploaded) != 1:\n'
+                "            raise ValueError(f'Upload exactly one {{kind}} (received {{len(uploaded)}} files; a cancelled dialog sends none). Run this cell again.')\n"
+                '        name, payload = next(iter(uploaded.items()))\n'
+                "        source = Path('work') / Path(name).name\n"
+                '        source.parent.mkdir(parents=True, exist_ok=True)\n'
+                '        source.write_bytes(payload)\n'
+                '    if suffixes and not source.name.lower().endswith(tuple(suffixes)):\n'
+                '        raise ValueError(f\'{{source.name}}: expected a {{kind}} ending in {{" or ".join(suffixes)}}.\')\n'
+                '    return source\n'
+                '\n'
+                '\n'
+                'if USE_BYOD:\n'
+                "    byod_zip = byod_file(BYOD_PATH, 'zip of photographs plus records.jsonl', ('.zip',))\n"
+                '    file_name, payload = byod_zip.name, byod_zip.read_bytes()\n'
                 "    byod_dir = Path('work') / 'byod'\n"
+
                 "    byod_dir.mkdir(parents=True, exist_ok=True)\n"
                 "    with zipfile.ZipFile(io.BytesIO(payload)) as archive:\n"
-                "        for member in archive.infolist():\n"
-                "            name = Path(member.filename).name\n"
-                "            if member.is_dir() or not name or name.startswith('.'):\n"
+                "        members = [m for m in archive.infolist() if not m.is_dir()]\n"
+                "        expanded = sum(m.file_size for m in members)\n"
+                "        if expanded > BYOD_MAX_EXPANDED_BYTES:\n"
+                "            raise ValueError(f'{{file_name}}: the zip expands to {{expanded:,}} bytes; at most {{BYOD_MAX_EXPANDED_BYTES:,}} are accepted.')\n"
+                "        seen = {{}}\n"
+                "        for member in members:\n"
+                "            raw = member.filename.replace(chr(92), '/')\n"
+                "            if raw.startswith('/') or (len(raw) > 1 and raw[1] == ':') or '..' in raw.split('/'):\n"
+                "                raise ValueError(f'{{file_name}}: entry {{member.filename!r}} is an absolute path or climbs out with \"..\"; rebuild the zip with plain relative paths.')\n"
+                "            name = raw.rsplit('/', 1)[-1]\n"
+                "            if not name or name.startswith('.') or raw.startswith('__MACOSX/'):\n"
                 "                continue\n"
+                "            if name in seen:\n"
+                "                raise ValueError(f'{{file_name}}: {{seen[name]!r}} and {{member.filename!r}} share the file name {{name!r}}; photographs are matched by file name, so rename one.')\n"
+                "            seen[name] = member.filename\n"
                 "            (byod_dir / name).write_bytes(archive.read(member))\n"
-                "    records_file = next(p for p in (byod_dir / 'records.jsonl', byod_dir / 'records.json') if p.is_file())\n"
+                "    records_file = next((p for p in (byod_dir / 'records.jsonl', byod_dir / 'records.json') if p.is_file()), None)\n"
+                '    if records_file is None:\n'
+                '        raise ValueError(f\'{{file_name}}: the zip holds no records.jsonl (or records.json) next to the photographs; add one with an {{"id", "image", "captions"}} object per line.\')\n'
+
                 "    records = load_byod_dataset(records_file)\n"
+                "    if len(records) < BYOD_MIN_PHOTOGRAPHS:\n"
+                "        raise ValueError(f'{{file_name}}: {{len(records)}} photographs; at least {{BYOD_MIN_PHOTOGRAPHS}} are needed so that the validation split (15%) and the test split (20%) each hold at least {{MIN_RECORDS}}.')\n"
                 "    splits = split_dataset(records, seed=SPLIT_SEED, base_dir=byod_dir)\n"
                 "    data_source = 'BYOD (' + file_name + ')'\n"
                 "    raw_rows = {{'byod': len(records)}}\n"
@@ -148,7 +210,12 @@ TEMPLATE = {
                 "    raw_rows = {{'annotations': len(annotations), 'photographs': len(image_paths), 'captioned': sum(1 for r in annotations if r['id'] in IMAGE_PINS and r['captions']), 'seconds': round(time.perf_counter() - t0, 1)}}\n"
                 "    splits = build_sample_dataset(annotations, seed=SPLIT_SEED, image_paths=image_paths)\n"
                 "    data_source = f'{{CORPUS_NAME}} {{CORPUS_RELEASE}} ({{CORPUS_LICENSE}})'\n"
-                "dataset_manifests = {{name: validate_dataset(part) for name, part in splits.items()}}\n"
+                "dataset_manifests = {{}}\n"
+                "for name, part in splits.items():\n"
+                "    try:\n"
+                "        dataset_manifests[name] = validate_dataset(part)\n"
+                "    except ValueError as exc:\n"
+                "        raise ValueError(f'{{name}} split ({{len(part)}} of {{sum(len(p) for p in splits.values())}} records): {{exc}}') from None\n"
                 "splits = {{name: manifest['records'] for name, manifest in dataset_manifests.items()}}\n"
                 "disjoint = check_split_disjoint(splits)\n"
                 "train_records, val_records, test_records = splits['train'], splits['validation'], splits['test']\n"
@@ -174,6 +241,11 @@ TEMPLATE = {
         },
         {
             "md": (
+                '<details><summary>Check your reasoning</summary>In the recorded run 318 of the 336 photographs carried at least one surviving reference caption, split 208 / 40 / 70. The five captions of one photograph describe the same picture, so a caption-level split would put the test photograph itself in training; `check_split_disjoint` confirmed no photograph is shared, and all four refusal probes were rejected before the model ran.</details>'
+            ),
+        },
+        {
+            "md": (
                 "## 5. The three inference capabilities through the contract\n\n"
                 "The inference contract is exercised as the multi-capability tutorial exercised it: a text instruction, a deterministic "
                 "synthetic traffic sign drawn in code (a red octagon with a white border, no ground truth) and the checkpoint's own example "
@@ -185,6 +257,18 @@ TEMPLATE = {
                 "capability path executed under 4-bit; whether the model is *good at these photographs* is what Section 6 measures."
             ),
             "code": (
+                '# PHI-M3: a re-run after Section 7 or 9 (BYOD, experiments) must start from the frozen, verified snapshot.\n'
+                "if globals().get('pipe') is None or pipe.adapter is not None:\n"
+                '    import gc\n'
+                '\n'
+                '    pipe = None\n'
+                "    globals().pop('reloaded', None)\n"
+                '    gc.collect()\n'
+                '    if torch.cuda.is_available():\n'
+                '        torch.cuda.empty_cache()\n'
+                "    pipe = Phi4MultimodalPipeline.from_pretrained(allow_remote_code=True, weights_dir=WEIGHTS_DIR, quantization='nf4')\n"
+                "    print({{'reloaded_frozen_pipeline': True, 'reason': 'the previous pipeline had been adapted in place or freed'}})\n"
+                '\n'
                 "import numpy as np\n"
                 "import soundfile as sf\n"
                 "from PIL import Image, ImageDraw\n\n"
@@ -239,11 +323,28 @@ TEMPLATE = {
                 "never looks at the image can reach on this convention). The **colour nearest neighbour** answers with the caption of the "
                 "training photograph whose 3×3 mean-colour grid is closest — a lookup that knows the image through 27 numbers. The **frozen "
                 "model** is scored by `pipe.evaluate` on the 70 test photographs through the captioning contract. Expect the frozen model "
-                "fluent but long — its CIDEr-D sits close to the baselines because the references are short — and read the six sample "
-                "captions next to their references to see the style gap the adaptation is asked to close. The cell asserts the frozen model "
-                "beats the constant caption on CIDEr-D."
+                "to clear both baselines by a wide margin (it looks at the photograph; they do not), with captions somewhat longer than the "
+                "references (Section 8 prints both mean lengths) — and read the six sample "
+                "captions next to their references to see the style gap the adaptation is asked to close. The cell reports whether the frozen "
+                "model beats the constant caption on CIDEr-D as a verdict (it does not stop a BYOD run). If `pipe` was adapted or freed by an "
+                "earlier run, the cell first reloads the frozen pipeline from the verified snapshot."
+                '\n\n**Predict before running:** the frozen model writes fluent captions. Will its CIDEr-D be far above the constant-caption baseline, or close to it? Will its captions be longer or shorter than the references?'
             ),
             "code": (
+                '# SWP-F: adapt() trains the vision LoRA of `pipe` in place, and Section 9 frees `pipe`. If this pipeline was already\n'
+                '# adapted or freed (a re-run), start again from the pinned, digest-verified snapshot, so the frozen scores and every\n'
+                '# new adaptation begin from the frozen weights they are labelled with.\n'
+                "if globals().get('pipe') is None or pipe.adapter is not None:\n"
+                '    import gc\n'
+                '\n'
+                '    pipe = None\n'
+                "    globals().pop('reloaded', None)  # Section 9's reloaded copy: two 4-bit copies do not fit a 16 GB card\n"
+                '    gc.collect()\n'
+                '    if torch.cuda.is_available():\n'
+                '        torch.cuda.empty_cache()\n'
+                "    pipe = Phi4MultimodalPipeline.from_pretrained(allow_remote_code=True, weights_dir=WEIGHTS_DIR, quantization='nf4')\n"
+                "    print({{'reloaded_frozen_pipeline': True, 'reason': 'the previous pipeline had been adapted in place or freed'}})\n"
+                '\n'
                 "baseline_constant = constant_caption_baseline(train_records, test_records)\n"
                 "baseline_neighbour = colour_neighbour_baseline(train_records, test_records)\n"
                 "METRICS = ('bleu4', 'rouge_l', 'cider_d', 'unigram_f1')\n"
@@ -261,7 +362,14 @@ TEMPLATE = {
                 "        frozen_examples.append(pipe.caption(photo)['caption'])\n"
                 "for record, caption in zip(shown, frozen_examples, strict=True):\n"
                 "    print({{'id': record['id'], 'frozen': caption, 'reference': record['captions'][0]}})\n"
-                "assert frozen_test['cider_d'] > baseline_constant['cider_d']"
+                "frozen_verdict = 'above the constant caption' if frozen_test['cider_d'] > baseline_constant['cider_d'] else 'not above the constant caption'\n"
+                "print({{'frozen_verdict_cider_d': frozen_verdict}})"
+
+            ),
+        },
+        {
+            "md": (
+                "<details><summary>Check your reasoning</summary>Well above here, but longer. In the recorded run the constant caption scored CIDEr-D 0.052 and the colour neighbour 0.042, while the frozen 4-bit model scored BLEU-4 0.171 / ROUGE-L 0.439 / CIDEr-D 0.722 with captions of 14.1 words on average — longer than VizWiz's short practical references, which costs it n-gram agreement.</details>"
             ),
         },
         {
@@ -283,6 +391,7 @@ TEMPLATE = {
                 "the active adapter, so the trainable set is exactly the 64 tensors reported below. Watch the training loss fall and the "
                 "validation CIDEr-D move over two epochs; at about two seconds per photograph on a T4, the two epochs take about a quarter "
                 "of an hour with the validation scoring."
+                '\n\n**Predict before running:** two epochs over 208 photographs. Will the validation CIDEr-D improve at both epochs, and what will happen to caption length?'
             ),
             "code": (
                 "EPOCHS = 2  # @param {{type:\"integer\"}}\n"
@@ -297,10 +406,29 @@ TEMPLATE = {
                 "    if 'note' in entry:\n"
                 "        row['note'] = entry['note']\n"
                 "    print(row)\n\n\n"
+                '# SWP-F: adapt() trains the vision LoRA of `pipe` in place, and Section 9 frees `pipe`. If this pipeline was already\n'
+                '# adapted or freed (a re-run), start again from the pinned, digest-verified snapshot, so the frozen scores and every\n'
+                '# new adaptation begin from the frozen weights they are labelled with.\n'
+                "if globals().get('pipe') is None or pipe.adapter is not None:\n"
+                '    import gc\n'
+                '\n'
+                '    pipe = None\n'
+                "    globals().pop('reloaded', None)  # Section 9's reloaded copy: two 4-bit copies do not fit a 16 GB card\n"
+                '    gc.collect()\n'
+                '    if torch.cuda.is_available():\n'
+                '        torch.cuda.empty_cache()\n'
+                "    pipe = Phi4MultimodalPipeline.from_pretrained(allow_remote_code=True, weights_dir=WEIGHTS_DIR, quantization='nf4')\n"
+                "    print({{'reloaded_frozen_pipeline': True, 'reason': 'the previous pipeline had been adapted in place or freed'}})\n"
+                '\n'
                 "t0 = time.perf_counter()\n"
                 "adapt_result = pipe.adapt(train_records, val_records, epochs=EPOCHS, lr=LEARNING_RATE, trained_layers=TRAINED_LAYERS, grad_accumulation=GRAD_ACCUMULATION, seed=SEED, progress=report)\n"
                 "adapt_seconds = round(time.perf_counter() - t0, 1)\n"
                 "print({{'trained': adapt_result['trained'], 'trained_layers': adapt_result['trained_layers'], 'trainable_tensors': len(adapt_result['trainable_names']), 'trainable_parameters': adapt_result['n_trainable'], 'parameters_as_loaded': adapt_result['n_parameters_as_loaded'], 'quantization': adapt_result['quantization'], 'best_epoch': adapt_result['best_epoch'], 'selection': adapt_result['selection'], 'loss': adapt_result['loss'], 'seconds': adapt_seconds}})"
+            ),
+        },
+        {
+            "md": (
+                '<details><summary>Check your reasoning</summary>In the recorded run validation CIDEr-D went 0.835 (epoch 0, the frozen model) → 0.910 → 1.010, so epoch 2 was kept, and the training loss fell from 2.607 to 2.382 in 1,141 s on a T4. Section 8 shows the length change. Each run of this cell starts from the frozen weights (it reloads them when `pipe` was already adapted), so changing a field and running it again never stacks adaptations.</details>'
             ),
         },
         {
@@ -310,10 +438,11 @@ TEMPLATE = {
                 "model is scored by `pipe.evaluate` exactly as the frozen one was in Section 6, the four systems are put side by side, and the "
                 "mean caption length is read next to the metrics — the first thing a VizWiz adaptation changes is length. Read it in this "
                 "order: **CIDEr-D** first (the headline), then BLEU-4 and ROUGE-L, then the deltas against the frozen model and the better "
-                "baseline. The cell asserts the adapted CIDEr-D is above the frozen model's and above both baselines and writes the report to "
+                "baseline. The cell reports (in `verdicts`, without stopping a BYOD run before export) whether the adapted CIDEr-D is above the frozen model's and above both baselines, and writes the report to "
                 "`outputs/{stem}_evaluation_report.json`. Seventy photographs from one seeded split of one dataset give **no dispersion "
                 "estimate**; the deltas are sample-sanity evidence that the adaptation contract works on a real labelled set, not a benchmark, "
                 "and a gain on VizWiz's short practical captions says nothing about captions in *your* domain until you measure it."
+                '\n\n**Predict before running:** how much will the adapted CIDEr-D gain over the frozen model, and what single change in the captions will explain most of it?'
             ),
             "code": (
                 "adapted_test = pipe.evaluate(test_records, progress=lambda done, total: print({{'adapted_test_progress': f'{{done}}/{{total}}'}}) if done % 35 == 0 else None)\n"
@@ -338,20 +467,30 @@ TEMPLATE = {
                 "    'adaptation': {{k: v for k, v in adapt_result.items() if k not in ('history', 'trainable_names')}},\n"
                 "    'history': adapt_result['history'],\n"
                 "    'adaptation_seconds': adapt_seconds,\n"
+                "    'verdicts': {{'frozen_vs_constant_caption': frozen_verdict, 'adapted_above_frozen': adapted_test['cider_d'] > frozen_test['cider_d'], 'adapted_above_both_baselines': adapted_test['cider_d'] > max(baseline_constant['cider_d'], baseline_neighbour['cider_d'])}},\n"
                 "}}\n"
                 "with open('outputs/{stem}_evaluation_report.json', 'w', encoding='utf-8') as f:\n"
                 "    json.dump(evaluation_report_payload, f, indent=2, ensure_ascii=False)\n"
-                "assert adapted_test['cider_d'] > frozen_test['cider_d']\n"
-                "assert adapted_test['cider_d'] > max(baseline_constant['cider_d'], baseline_neighbour['cider_d'])\n"
+                "if not (evaluation_report_payload['verdicts']['adapted_above_frozen'] and evaluation_report_payload['verdicts']['adapted_above_both_baselines']):\n"
+                "    print('The adapted model did not beat the frozen model and both baselines on CIDEr-D; the report, export and reload still run. Read the baselines and caption lengths before trusting it.')\n"
+
                 "print({{'report': 'outputs/{stem}_evaluation_report.json', 'cider_d_gain_over_frozen': comparison['delta_vs_frozen']['cider_d']}})"
+            ),
+        },
+        {
+            "md": (
+                "<details><summary>Check your reasoning</summary>In the recorded run the adapted model scored BLEU-4 0.262 / ROUGE-L 0.489 / CIDEr-D 0.890 (+0.168 over frozen, +0.838 over the best baseline) with captions of 11.2 words against 12.1 in the references: most of the gain is the model learning VizWiz's shorter, practical style. Seventy photographs from one split give no dispersion estimate; the verdict lines record the comparison instead of stopping the notebook.</details>"
             ),
         },
         {
             "md": (
                 "## 9. Before and after, export the adapter and reload it\n\n"
                 "The six test photographs from Section 6 are captioned again by the adapted model and printed beside the frozen caption and "
-                "the first reference, so the metric movement can be checked by eye: shorter, more literal captions that name the held object "
-                "or the printed text are what the VizWiz convention rewards. `pipe.save_artifact` writes the 64 trained tensors — about "
+                "the first reference, so the metric movement can be checked by eye: shorter captions in the references' phrasing are what the "
+                "VizWiz convention and CIDEr-D reward. **What to notice:** check every adapted caption against its photograph for objects, brands "
+                "or text that are not there (in the recorded run two of the six added things the photograph does not support, such as a monitor "
+                "brand and a phone colour); BLEU and CIDEr-D barely penalise one fluent wrong noun, so a higher score is not evidence of a more "
+                "faithful caption. `pipe.save_artifact` writes the 64 trained tensors — about "
                 "185 MB in fp16 — as `adapter.safetensors`, with a `manifest.json` recording the artifact format, the base model id and "
                 "revision, the digest of the base's first shard, the five remote-code files the base executes, the quantization the adapter "
                 "was trained under, the MIT licence, the tensor names, the file size and SHA-256, the training configuration and the epoch "
@@ -361,6 +500,7 @@ TEMPLATE = {
                 "`Phi4MultimodalPipeline.from_artifact` loads a **fresh** base from the verified snapshot, checks the artifact manifest, its "
                 "digest, its licence and its exact tensor set **before** deserialising, refuses any tensor outside the recorded vision-LoRA "
                 "scope, overlays the tensors, and captions the same eight photographs (VER2). Parity is then read at two levels (VER4): the eight captions are compared verbatim and every mismatch is printed, and the reloaded model is scored on all 70 test photographs, where the cell asserts its CIDEr-D is within 0.02 of the adapted model's. Greedy decoding turns a sub-ULP difference in one logit into a different word (the first clean run reproduced 7 of 8 captions verbatim), so caption identity is reported as information while the corpus score — the number the tutorial actually claims — is what is asserted."
+                '\n\n**Predict before running:** after freeing the model and reloading the adapter in 4-bit, will all eight captions match the in-memory model word for word?'
             ),
             "code": (
                 "import gc\n"
@@ -400,7 +540,8 @@ TEMPLATE = {
                 "reloaded_test = reloaded.evaluate(test_records, progress=lambda done, total: print({{'reloaded_test_progress': f'{{done}}/{{total}}'}}) if done % 35 == 0 else None)\n"
                 "parity = {{'identical_captions': sum(a == b for a, b in zip(before_reload, after_reload, strict=True)), 'of': len(parity_records), 'test_cider_d': {{'adapted': adapted_test['cider_d'], 'reloaded': reloaded_test['cider_d']}}, 'test_cider_d_abs_diff': round(abs(reloaded_test['cider_d'] - adapted_test['cider_d']), 4)}}\n"
                 "print({{'reload_parity': parity, 'reloaded_best_epoch': reloaded.adapter['best_epoch'], 'reloaded_trained_layers': reloaded.adapter['trained_layers']}})\n"
-                "assert parity['test_cider_d_abs_diff'] <= 0.02\n\n"
+                "if parity['test_cider_d_abs_diff'] > 0.02:\n"
+                "    raise RuntimeError(f\"Reload parity failed: the reloaded adapter's held-out CIDEr-D differs from the in-memory adapted model's by {{parity['test_cider_d_abs_diff']}} (limit 0.02). The exported adapter does not reproduce the model you trained; do not use it.\")\n\n"
                 "result_payload = {{\n"
                 "    'notebook_source': NOTEBOOK_SOURCE,\n"
                 "    'repository_revision': NOTEBOOK_SOURCE['repository_revision'],\n"
@@ -424,14 +565,20 @@ TEMPLATE = {
                 "print(sorted(os.listdir('outputs')))"
             ),
         },
+        {
+            "md": (
+                '<details><summary>Check your reasoning</summary>Almost: the recorded run matched 7 of 8 captions verbatim (the eighth differed by a trailing full stop) and the reloaded test CIDEr-D was 0.8893 against 0.8900 — a difference of 0.0007, inside the 0.02 parity check. 4-bit kernels are not bit-exact across loads, which is why parity is checked on the metric as well as verbatim.</details>'
+            ),
+        },
     ],
     "closing": (
         "## Interpretation and limits\n\n"
-        "The frozen Phi-4-multimodal captions VizWiz photographs fluently and at length, and CIDEr-D scores that style close to a caption "
-        "that never looks at the image; a bounded fine-tuning of the checkpoint's own vision LoRA in the last eight decoder layers — the "
+        "The frozen Phi-4-multimodal already clears both non-neural baselines by a wide margin (in the recorded run about fourteen times the "
+        "constant caption's CIDEr-D), so by the *Baselines first* rule below what adaptation adds here is mostly style — the VizWiz "
+        "convention's length and phrasing — not competence. A bounded fine-tuning of the checkpoint's own vision LoRA in the last eight decoder layers — the "
         "adaptation mechanism the model was built with, narrowed to 92 M of its 5.6 B parameters, trained through a 4-bit base on a 16 GB "
-        "card — moves the held-out CIDEr-D past the frozen model and past both non-neural baselines, and the adapter reloads caption for "
-        "caption into a fresh pipeline. That is the claim: the adaptation contract works end to end on a real labelled set, behind the "
+        "card — moves the held-out CIDEr-D past the frozen model and past both non-neural baselines, and the adapter reloads into a fresh "
+        "pipeline with the held-out CIDEr-D within 0.02 (most, not necessarily all, of the eight parity captions verbatim). That is the claim: the adaptation contract works end to end on a real labelled set, behind the "
         "verified remote-code perimeter and under quantization, and its numbers are read against two baselines and the frozen model rather "
         "than in isolation.\n\n"
         "The test split is 70 photographs from one seeded draw of one row group, the validation split that picks the epoch is 40, and the "
@@ -453,11 +600,41 @@ TEMPLATE = {
         "and the frozen model on an image-disjoint split, and emit the shown machine-readable artifacts — without the repository being "
         "reachable. It does **not** establish benchmark superiority, captioning quality on any other convention, the effect of adaptation "
         "on the text or audio capabilities, or production fitness.\n\n"
-        "**Optional experiments (they do not affect the default path):** set `TRAINED_LAYERS = 4` and read how much of the gain the last "
-        "four layers recover; set `TRAINED_LAYERS = 32` to train the whole vision LoRA as upstream does (400 M parameters; expect the T4 to "
+        "**Optional experiments (they do not affect the default path).** Change a field in Section 7 and run Sections 7, 8 and 9 again in order: "
+        "Section 7 reloads the frozen model from the verified snapshot first, so a new adaptation never stacks on the previous one and the "
+        "Section 6 frozen scores stay valid. Set `TRAINED_LAYERS = 4` and read how much of the gain the last "
+        "four layers recover; set `TRAINED_LAYERS = 32` to train the whole vision LoRA as upstream does (369,098,752 parameters; expect the T4 to "
         "run out of memory unless `GRAD_ACCUMULATION` is raised and the training split reduced); raise `EPOCHS` and watch the validation "
         "CIDEr-D pick the epoch while the training loss keeps falling; or bring your own photographs through BYOD and read the two "
         "baselines before the adapted number.\n\n"
+        '## Troubleshooting\n\n'
+        '- **Section 1 stops with "This notebook needs a Linux x86_64 runtime"** — use Google Colab, Kaggle or a Linux x86_64 Jupyter server.\n'
+        '- **The uv wheel fails its size/SHA-256 check, or a download in Section 1 times out** — run Section 1 again; a complete environment is reused and an incomplete one is finished. If it repeats, `files.pythonhosted.org` or `pypi.org` is blocked or altered.\n'
+        '- **You re-ran Section 1 on its own** — nothing is lost: it keeps the running worker and every variable. After a session restart, run from the top.\n'
+        '- **"The isolated environment\'s Python process exited"** or **CUDA out of memory** — the 4-bit model plus training needs about 9–10 GB; restart the session on a 16 GB GPU and choose **Run all**. If you re-run Sections 6–8 after Section 9, restart instead: the reloaded artifact from Section 9 still holds GPU memory.\n'
+        '- **Section 3 refuses a shard or a model-code file (size or SHA-256)** — the message names the file. Delete the folder Section 3 prints as `weights_dir` and run Section 3 again; never edit the model-code files.\n'
+        '- **A `sha256` or size error naming a VizWiz parquet or photograph in Section 4** — a cached file under `weights/vizwiz-captions/` is incomplete; delete it and run Section 4 again.\n'
+        '- **A verdict line says the adapted model did not beat the frozen model or the baselines** — on the default path that is a finding worth recording; on your own data read the baselines and caption lengths first.\n'
+        '- **BYOD: "BYOD path … does not exist" / "the upload dialog exists only in Google Colab" / "Upload exactly one …"** — set `BYOD_PATH` to the zip in the runtime (it works on Kaggle and Jupyter); on Colab an empty path opens the dialog, and a cancelled dialog stops with that message.\n'
+        '- **BYOD: "the zip holds no records.jsonl" or a `load_byod_dataset` refusal** — add `records.jsonl` beside the photographs; refusals name the line, the file and the rule.\n\n'
+        '## Glossary\n\n'
+        '- **Multimodal model** — one network that reads text, images and audio and writes text.\n'
+        '- **4-bit NF4 quantization** — storing most weights in 4 bits so the 5.6 B model fits a 16 GB GPU; computation is done in higher precision.\n'
+        '- **LoRA** — small low-rank matrices added to frozen layers; this checkpoint ships a vision LoRA, and only the copies in the last eight layers are trained here.\n'
+        '- **Remote code (`trust_remote_code`)** — Python shipped with the checkpoint that the loader executes; here it is digest-verified first.\n'
+        '- **Greedy decoding** — always choosing the most likely next token; deterministic for a given runtime.\n'
+        '- **BLEU-4 / ROUGE-L / CIDEr-D** — n-gram precision, longest-common-subsequence overlap, and TF-IDF-weighted n-gram agreement with the references (the headline metric, comparable only on the same records).\n'
+        '- **Constant-caption / colour-neighbour baseline** — one training caption for every photograph; the caption of the training photograph with the closest 3×3 mean-colour grid.\n'
+        '- **Epoch / gradient accumulation / validation selection** — one pass over the training photographs; summing gradients over several steps before an update; keeping the epoch with the best validation CIDEr-D.\n'
+        '- **Held-out test split** — photographs never used for training or selection; no photograph is in two splits.\n'
+        '- **Adapter / reload parity** — the trained LoRA tensors only, overlaid on the pinned base; the reloaded model gives the same captions and CIDEr-D.\n'
+        '- **Isolated environment** — the separate Python 3.12.12 environment Section 1 builds from the hash lock; every later cell runs there.\n'
+        '- **BYOD** — bring your own data: your captioned photographs through the same cells.\n\n'
+        '## Conclusion (your notes)\n\nOptional — fill in from **your** run:\n\n'
+        '- Constant caption ___, colour neighbour ___, frozen ___, adapted ___ (test CIDEr-D); the verdict was ___.\n'
+        '- Mean caption length moved from ___ to ___ words against ___ in the references, which explains ___.\n'
+        '- One before/after caption pair that shows the change: ___ → ___.\n'
+        '- One reason not to trust this gain on my own photographs yet: ___.\n\n'
         "## References\n\n"
         "- Repository README: https://github.com/kurtvalcorza/phi4-multimodal-pipeline/blob/main/README.md\n"
         "- Repository model card: https://github.com/kurtvalcorza/phi4-multimodal-pipeline/blob/main/MODEL_CARD.md\n"
@@ -466,6 +643,6 @@ TEMPLATE = {
         "- Phi-4-Mini and Phi-4-Multimodal technical report (Microsoft, 2025): https://arxiv.org/abs/2503.01743\n"
         "- VizWiz-Captions (Gurari et al., ECCV 2020; CC BY 4.0): https://vizwiz.org/tasks-and-datasets/image-captioning — Hub mirror https://huggingface.co/datasets/mm-eval/VizWiz-Captions\n"
         "- QLoRA (Dettmers et al., 2023) for the 4-bit-base + LoRA recipe: https://arxiv.org/abs/2305.14314\n"
-        "- DIMER Notebook Specification 2.0 and Model Card Specification 1.1 (fleet specs in the ml-worker repository)"
+        "- DIMER Notebook Specification 2.2 and Model Card Specification 1.1 (fleet specs in the ml-worker repository)"
     ),
 }

@@ -101,12 +101,12 @@ def test_committed_tree_passes() -> None:
 @pytest.mark.parametrize("flag", ["'-e', ", "'--editable', "])
 def test_control_editable_self_install_is_rejected(tree: Path, flag: str) -> None:
     module = _load_validator(tree)
-    # A second pip call that installs the tree editably; the pinned-install marker line stays intact.
+    # A pip call that installs the tree editably into the isolated environment; the bootstrap stays intact.
     _replace_in_code(
         module,
-        "    importlib.invalidate_caches()\n",
-        f"    subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', {flag}'.'], check=True)\n"
-        "    importlib.invalidate_caches()\n",
+        "    ISOLATED_READY.write_text(LOCK_SHA256",
+        f"    subprocess.run([str(uv), 'pip', 'install', {flag}'.'], check=True)\n"
+        "    ISOLATED_READY.write_text(LOCK_SHA256",
     )
     with pytest.raises(module.ValidationError, match="editable self-install"):
         module.validate_notebooks()
@@ -175,14 +175,17 @@ def test_control_required_call_only_in_comment_is_rejected(tree: Path) -> None:
         module.validate_notebooks()
 
 
-def test_control_guard_that_no_longer_raises_is_rejected(tree: Path) -> None:
+def test_control_pip_install_into_the_kernel_is_rejected(tree: Path) -> None:
+    """2026-10-05 sweep (SWP-R): the restart guard is gone; a kernel pip install is refused."""
+    pip_line = "subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', 'numpy'], check=True)\n"
     module = _load_validator(tree)
     _replace_in_code(
         module,
-        "    if stale:\n        raise RuntimeError(",
-        "    if stale:\n        print(  # Restart the runtime, then rerun from the top.\n            ",
+        "baseline_constant = constant_caption_baseline(",
+        "import subprocess, sys\n" + pip_line + "baseline_constant = constant_caption_baseline(",
     )
-    with pytest.raises(module.ValidationError, match="must raise RuntimeError"):
+    refused = "pip-install into the notebook kernel|subprocess on the primary path"
+    with pytest.raises(module.ValidationError, match=refused):
         module.validate_notebooks()
 
 
