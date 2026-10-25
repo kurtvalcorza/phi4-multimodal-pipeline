@@ -434,7 +434,7 @@ TEMPLATE = {
         },
         {
             "md": (
-                '<details><summary>Check your reasoning</summary>In the recorded run validation CIDEr-D went 0.835 (epoch 0, the frozen model) → 0.910 → 1.010, so epoch 2 was kept, and the training loss fell from 2.607 to 2.382 in 1,100.7 s on a T4. Section 8 shows the length change. Each run of this cell starts from the frozen weights (it reloads them when `pipe` was already adapted), so changing a field and running it again never stacks adaptations.</details>'
+                '<details><summary>Check your reasoning</summary>In the recorded run validation CIDEr-D went 0.835 (epoch 0, the frozen model) → 0.910 → 1.010, so epoch 2 was kept, and the training loss fell from 2.607 to 2.382 in about 18–19 minutes on a Colab T4 (the hosted runs of blobs `ccd411d4` on 2026-10-08 and `c79997b9` on 2026-10-25, which printed the same numbers). Section 8 shows the length change. Each run of this cell starts from the frozen weights (it reloads them when `pipe` was already adapted), so changing a field and running it again never stacks adaptations.</details>'
             ),
         },
         {
