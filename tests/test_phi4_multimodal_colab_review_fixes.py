@@ -51,7 +51,7 @@ def test_phi_m1_no_kernel_install_and_spec_22(nb: dict) -> None:
     code = "\n".join(_code(nb))
     assert "sys.executable, '-m', 'pip'" not in code and "Restart the runtime" not in code
     assert "--require-hashes" in code and "--only-binary" in code
-    assert nb["metadata"]["dimer"]["notebook_spec"] == "2.2"
+    assert nb["metadata"]["dimer"]["notebook_spec"] == "2.5" and nb["metadata"]["dimer"]["notebook_kind"] == "TUTORIAL"
 
 
 def test_phi_m2_frozen_is_not_described_as_close_to_the_baselines(nb: dict) -> None:
