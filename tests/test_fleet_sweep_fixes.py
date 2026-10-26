@@ -236,7 +236,10 @@ def test_swp_r_preinstalled_executor_runs_cells_in_its_own_kernel(nb: dict, monk
 
 
 def _byod_helper(nb: dict) -> object:
-    return _function(_cell_with(nb, "def byod_file("), "byod_file", {"os": os, "Path": Path})
+    source = _cell_with(nb, "def byod_file(")
+    namespace = {"os": os, "Path": Path}
+    exec(source[source.index("class BYODRefusal(ValueError):") : source.index("# What an earlier run")], namespace)  # DAT20
+    return _function(source, "byod_file", namespace)
 
 
 def test_swp_b_byod_path_reads_file_and_refuses_with_names(nb: dict, tmp_path: Path, monkeypatch) -> None:
@@ -245,7 +248,7 @@ def test_swp_b_byod_path_reads_file_and_refuses_with_names(nb: dict, tmp_path: P
     good = tmp_path / "mine.zip"
     good.write_bytes(b"data")
     assert helper(str(good), "file", (".zip",)) == good
-    with pytest.raises(FileNotFoundError, match="missing.zip"):
+    with pytest.raises(ValueError, match="^missing.zip: BYOD path"):
         helper(str(tmp_path / "missing.zip"), "file")
     bad = tmp_path / "wrong.xyz"
     bad.write_bytes(b"x")
@@ -253,7 +256,7 @@ def test_swp_b_byod_path_reads_file_and_refuses_with_names(nb: dict, tmp_path: P
         helper(str(bad), "file", (".zip",))
     monkeypatch.delitem(sys.modules, "google.colab", raising=False)
     monkeypatch.setitem(sys.modules, "google", types.ModuleType("google"))
-    with pytest.raises(RuntimeError, match="only in Google Colab"):
+    with pytest.raises(ValueError, match=r"^\(no file\): .*only in Google Colab"):
         helper("", "file")
 
 
