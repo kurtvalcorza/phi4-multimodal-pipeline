@@ -132,7 +132,7 @@ def test_phi_m4_split_failure_names_the_split(nb: dict, tmp_path: Path) -> None:
 def _extract(nb: dict, tmp_path: Path, entries: dict[str, bytes], limit: int = 2 * 1024**3) -> Path:
     cell = _cell_with(nb, "BYOD_PATH = ''")
     start = cell.index("    with zipfile.ZipFile(io.BytesIO(payload)) as archive:")
-    block = textwrap.dedent(cell[start : cell.index("    records_file = ", start)])
+    block = textwrap.dedent(cell[start : cell.index("        except (OSError, zipfile.BadZipFile) as exc:", start)])  # the extraction, without its read-error catch
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w") as archive:
         for name, data in entries.items():
