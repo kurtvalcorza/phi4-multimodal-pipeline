@@ -120,8 +120,8 @@ def test_phi_m4_stated_byod_minimum_is_the_real_edge(nb: dict, tmp_path: Path) -
 
 def test_phi_m4_split_failure_names_the_split(nb: dict, tmp_path: Path) -> None:
     cell = _cell_with(nb, "BYOD_PATH = ''")
-    start = cell.index("dataset_manifests = {}")
-    loop = cell[start : cell.index("splits = {name: manifest['records']", start)]
+    start = cell.rindex("\n", 0, cell.index("dataset_manifests = {}")) + 1
+    loop = textwrap.dedent(cell[start : cell.index("splits = {name: manifest['records']", start)])  # DAT20: inside the BYOD wrap
     records = _jpegs(tmp_path / "img", 49)
     ns = {"splits": split_dataset(records, seed=42), "validate_dataset": validate_dataset}
     with pytest.raises(ValueError, match=r"^validation split \(7 of 49 records\): 7 records; 8\.\.5000"):
@@ -140,6 +140,7 @@ def _extract(nb: dict, tmp_path: Path, entries: dict[str, bytes], limit: int = 2
     byod_dir = tmp_path / "byod"
     byod_dir.mkdir(parents=True)
     ns = {"zipfile": zipfile, "io": io, "payload": buf.getvalue(), "file_name": "mine.zip", "byod_dir": byod_dir, "BYOD_MAX_EXPANDED_BYTES": limit}
+    exec(cell[cell.index("class BYODRefusal(ValueError):") : cell.index("# What an earlier run")], ns)  # DAT20: the refusal class
     exec(compile(block, "<extract>", "exec"), ns)
     return byod_dir
 
