@@ -1,0 +1,71 @@
+{
+  "repo": "phi4-multimodal-pipeline",
+  "sha": "6eaf0e112f1c0cc5bc98ddc43ea2db0934657103",
+  "notebook": "tutorials/phi4_multimodal_colab.ipynb",
+  "blob": "43c47370825d354e95bfeac695cbfdc4a7a2df93",
+  "gpu": "T4",
+  "session": "suite-phi4-6eaf0e1-4c48",
+  "started_utc": "2026-11-03T03:14:07+00:00",
+  "runner": "Colab CLI `colab exec -f` on a fresh session (not a browser Run all)",
+  "overrides": [
+    {
+      "name": "USE_BYOD",
+      "from": "False",
+      "to": "True"
+    },
+    {
+      "name": "BYOD_PATH",
+      "from": "''",
+      "to": "'/etc/hostname'"
+    }
+  ],
+  "run_copy_blob": "eb3d67e741b5e3f15c757757be80da15221ba841",
+  "run_copy_sha256": "333cba8eb03db484789966fbb08622e6a3623674566ab6391cc4f1d57512f531",
+  "run_copy_note": "refusal run: the run copy is the committed notebook with the listed assignment overrides, cut immediately after the refusal cell and re-serialised (nbformat layout); input_unchanged compares against that copy",
+  "truncated_after_cell": "phi4_multimodal-16",
+  "refusal_cell_ref": "phi4_multimodal-16",
+  "refusal_cell_index": 7,
+  "cells_dropped": 16,
+  "code_cells_dropped": 5,
+  "original_sha256": "e5ce7f8d5d06d7c5fb0525b27be63172e4d5833c784bbfaa37d4a7281e4ebb78",
+  "status": "[suite-phi4-6eaf0e1-4c48] gpu-t4-s-use1c0-1suto3bfym1lv | Hardware: T4 | Shape: Standard | Variant: GPU | Status: IDLE",
+  "exec_exit_code": 0,
+  "stopped": true,
+  "stop_verified": true,
+  "wall_s": 609.5,
+  "input_unchanged": true,
+  "executed_file": "phi4_multimodal_colab_6eaf0e1_colab-cli-t4_output.ipynb",
+  "log_cells": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+  ],
+  "log_total": 7,
+  "code_cells": 7,
+  "executed_cells": 4,
+  "errors": [
+    {
+      "cell": "phi4_multimodal-16",
+      "ename": "IsolatedCellRefusal",
+      "evalue": "hostname: expected a zip of photographs plus records.jsonl ending in .zip; fix the input and run this cell again (the earlier results of this session and their outputs/ files were removed)."
+    }
+  ],
+  "execution_counts": [],
+  "sequential": null,
+  "executed_sha256": "370da076e687439a3c1a8376101836713c99a1a40db6eb7b6bd237f4cc5e353e",
+  "log_sequential_complete": true,
+  "mode": "expect_refusal",
+  "refusal_line": "Refused: hostname: expected a zip of photographs plus records.jsonl ending in .zip; fix the input and run this cell again (the earlier results of this session and their outputs/ files were removed).",
+  "halting_cell_index": 7,
+  "halting_cell_id": "phi4_multimodal-16",
+  "error_cells": [
+    7
+  ],
+  "refusal_fail_reasons": [],
+  "refusal_ok": true,
+  "verdict": "PASS"
+}
